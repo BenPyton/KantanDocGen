@@ -291,8 +291,8 @@ public:
 		auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"));
 		bool bHasProperties = false;
 		for (TFieldIterator<FProperty> PropertyIterator(Struct);
-			PropertyIterator 
-			&& ((PropertyIterator->PropertyFlags & CPF_BlueprintVisible)
+			PropertyIterator
+			&& ((PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit))
 				|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated)));
 			++PropertyIterator)
 		{
