@@ -33,6 +33,8 @@
 #include "TextureResource.h"
 #include "ThreadingHelpers.h"
 
+#define ENABLE_TEAMCITY_LOGS 1
+
 struct FDocGenHelper
 {
 private:
@@ -134,6 +136,15 @@ private:
 	}
 
 public:
+
+	static void PrintWarning(const FString& Msg)
+	{
+		UE_LOG(LogKantanDocGen, Warning, TEXT("%s"), *Msg);
+#if ENABLE_TEAMCITY_LOGS
+		FString LogStr = FString::Printf(TEXT("##teamcity[message status='WARNING' text='%s']\n"), *Msg);
+		FPlatformMisc::LocalPrint(*LogStr);
+#endif
+	}
 
 	static FString GetNodeShortTitle(const UEdGraphNode* Node)
 	{
@@ -317,14 +328,13 @@ public:
 				const bool IsPublic = PropertyIterator->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic);
 				const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
 
-				FString LogStr = FString::Printf(
-					TEXT("##teamcity[message status='WARNING' text='No doc for %s (IsPublic %i): %s::%s']\n")
+				PrintWarning(FString::Printf(
+					TEXT("No doc for %s (IsPublic %i): %s::%s")
 					, *Context
 					, IsPublic
 					, *Struct->GetName()
 					, *PropertyIterator->GetNameCPP()
-				);
-				FPlatformMisc::LocalPrint(*LogStr);
+				));
 			}
 		}
 		return bHasProperties;
@@ -863,9 +873,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 			{
 				ClassDocTreeMap.Add(ClassInstance, ClassDocTree);
 				UpdateIndexDocWithClass(IndexTree, ClassInstance);
-				FString LogStr = FString::Printf(
-					TEXT("##teamcity[message status='WARNING' text='No doc for UClass: %s']\n"), *Type->GetName());
-				FPlatformMisc::LocalPrint(*LogStr);
+				FDocGenHelper::PrintWarning(FString::Printf(TEXT("No doc for UClass: %s"), *Type->GetName()));
 			}
 		}
 		else if (Type->GetClass() == UScriptStruct::StaticClass())
@@ -877,10 +885,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(Struct, StructDocTree);
 				if (bHasComment == false)
 				{
-					FString LogStr = FString::Printf(
-						TEXT("##teamcity[message status='WARNING' text='Warning in UScriptStruct: %s']\n"),
-						*Type->GetName());
-					FPlatformMisc::LocalPrint(*LogStr);
+					FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Type->GetName()));
 				}
 
 				FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
@@ -903,9 +908,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 			const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(EnumInstance, EnumDocTree);
 			if (bHasComment == false)
 			{
-				FString LogStr = FString::Printf(
-					TEXT("##teamcity[message status='WARNING' text='Warning in UEnum %s']\n"), *Type->GetName());
-				FPlatformMisc::LocalPrint(*LogStr);
+				FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *Type->GetName()));
 			}
 
 			auto ValueList = EnumDocTree->FindChildByName("values");
