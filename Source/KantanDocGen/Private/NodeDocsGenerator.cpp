@@ -859,20 +859,25 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				ClassDocTree = InitClassDocTree(ClassInstance);
 				bIsCreated = true;
 			}
-
-			bool bClassShouldBeDocumented = FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
+			const bool bIsBlueprintable = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
+			const bool bIsBlueprintType = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
+			bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
+			bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
 
 			const FString& Comment = ClassInstance->GetMetaData(TEXT("Comment"));
 			bool HasComment = Comment.Len() > 0;
-			// UE_LOG(LogKantanDocGen, Warning, TEXT("UClass: %s, comment (%i): %s"), *Type->GetName(), Comment.Len(),
-			// *Comment);
 
-			// Only insert this into the map of classdocs if it wasnt already in there, we actually need it to be
-			// included and does not have any comments
-			if (bIsCreated && bClassShouldBeDocumented && HasComment == false)
+			// Only insert this into the map of classdocs if:
+			// - it wasnt already in there,
+			// - we actually need it to be included
+			if (bIsCreated && bClassShouldBeDocumented)
 			{
 				ClassDocTreeMap.Add(ClassInstance, ClassDocTree);
 				UpdateIndexDocWithClass(IndexTree, ClassInstance);
+			}
+
+			if (HasComment == false)
+			{
 				FDocGenHelper::PrintWarning(FString::Printf(TEXT("No doc for UClass: %s"), *Type->GetName()));
 			}
 		}
