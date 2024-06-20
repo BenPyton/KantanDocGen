@@ -864,8 +864,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 			bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
 			bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
 
-			const FString& Comment = ClassInstance->GetMetaData(TEXT("Comment"));
-			bool HasComment = Comment.Len() > 0;
+			const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(ClassInstance, ClassDocTree);
 
 			// Only insert this into the map of classdocs if:
 			// - it wasnt already in there,
@@ -876,7 +875,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				UpdateIndexDocWithClass(IndexTree, ClassInstance);
 			}
 
-			if (HasComment == false)
+			if (bHasComment == false)
 			{
 				FDocGenHelper::PrintWarning(FString::Printf(TEXT("No doc for UClass: %s"), *Type->GetName()));
 			}
