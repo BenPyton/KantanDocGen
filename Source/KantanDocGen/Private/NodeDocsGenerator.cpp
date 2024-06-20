@@ -171,6 +171,81 @@ public:
 		return Field ? Field->GetDisplayNameText().ToString() : FString("None");
 	}
 
+	static FString GetDescription(const UField* Field)
+	{
+		check(Field);
+		if (const UClass* Class = Cast<UClass>(Field))
+		{
+			if (Class->HasAllClassFlags(CLASS_Interface))
+				return "*UInterface cannot be documented*";
+		}
+
+		FString Description = Field->GetToolTipText().ToString();
+		if (Description == GetObjectRawDisplayName(Field))
+			return FString();
+
+		return Description;
+	}
+
+	static FString GetSourcePath(const UField* Field)
+	{
+		check(Field);
+		static const FName MD_RelativePath("ModuleRelativePath");
+		FString Path = Field->GetMetaData(MD_RelativePath);
+		if (Path.IsEmpty())
+		{
+			Path = Field->GetPathName();
+			Path.RemoveFromEnd("." + Field->GetName());
+		}
+		return Path;
+	}
+
+	static FString GetTypeHierarchy(const UStruct* Struct)
+	{
+		check(Struct);
+		const UStruct* Parent = Struct->GetSuperStruct();
+		FString OutputStr = FDocGenHelper::GetDisplayName(Struct);
+		while (nullptr != Parent)
+		{
+			// TODO: Create a node list of classes, with a possible ClassDocId if they belong to the doc too.
+			// So we could create links in the generated doc to the related parent class pages.
+			OutputStr = FString::Printf(TEXT("%s > %s"), *FDocGenHelper::GetDisplayName(Parent), *OutputStr);
+			Parent = Parent->GetSuperStruct();
+		}
+		return OutputStr;
+	}
+
+	static FString GetClassGroup(const UClass* Class)
+	{
+		const bool bIsNative = Class->HasAnyClassFlags(CLASS_Native);
+		if (bIsNative)
+		{
+			TArray<FString> Groups;
+			Class->GetClassGroupNames(Groups);
+			if (Groups.Num() > 0)
+				return Groups[0];
+		}
+		else
+		{
+			UObject* DO = Class->GetDefaultObject();
+			UBlueprint* BP = Cast<UBlueprint>(DO);
+			if (nullptr != BP)
+			{
+				if (!BP->BlueprintCategory.IsEmpty())
+					return BP->BlueprintCategory;
+				else if (!BP->BlueprintNamespace.IsEmpty())
+					return BP->BlueprintNamespace;
+			}
+		}
+		return FString();
+	}
+
+	static FString GetObjectNativeness(const UObject* Object)
+	{
+		check(Object);
+		return Object->IsNative() ? TEXT("C++") : TEXT("Blueprint");
+	}
+
 	// Get a child node of a DocTreeNode, creating it if necessary if bCreate is true.
 	static TSharedPtr<DocTreeNode> GetChildNode(TSharedPtr<DocTreeNode> Parent, const FString& ChildName, bool bCreate = false)
 	{
@@ -216,6 +291,7 @@ public:
 
 			auto Member = MemberList->AppendChild(TEXT("field"));
 			Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
+			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
 			FString ExtendedTypeString;
 			FString TypeString = PropertyIterator->GetCPPType(&ExtendedTypeString);
 			Member->AppendChildWithValueEscaped("type", TypeString + ExtendedTypeString);
@@ -562,6 +638,9 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 	ClassDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	ClassDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Class));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Class));
 	ClassDoc->AppendChild(TEXT("nodes"));
 	ClassDoc->AppendChild(TEXT("fields"));
 	return ClassDoc;
@@ -573,6 +652,9 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Str
 	StructDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	StructDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
+	StructDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
+	StructDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Struct));
+	StructDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Struct));
 	StructDoc->AppendChild(TEXT("fields"));
 	return StructDoc;
 }
@@ -583,6 +665,8 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitEnumDocTree(UEnum* Enum)
 	EnumDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	EnumDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
+	EnumDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
+	EnumDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Enum));
 	EnumDoc->AppendChild(TEXT("values"));
 	return EnumDoc;
 }
@@ -593,6 +677,9 @@ bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree
 	auto DocTreeClass = DocTreeClassesElement->AppendChild("class");
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("group"), FDocGenHelper::GetClassGroup(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Class));
 	return true;
 }
 
@@ -602,6 +689,8 @@ bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTre
 	auto DocTreeStruct = DocTreeStructsElement->AppendChild("struct");
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
+	DocTreeStruct->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
+	DocTreeStruct->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Struct));
 	return true;
 }
 
@@ -611,6 +700,8 @@ bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree,
 	auto DocTreeEnum = DocTreeEnumsElement->AppendChild("enum");
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
+	DocTreeEnum->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
+	DocTreeEnum->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Enum));
 	return true;
 }
 
@@ -620,6 +711,8 @@ bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree,
 	auto DocTreeNode = DocTreeNodesElement->AppendChild("node");
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("shorttitle"), FDocGenHelper::GetNodeShortTitle(Node));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetNodeDescription(Node));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Node));
 	return true;
 }
 
