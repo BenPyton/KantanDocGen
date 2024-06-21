@@ -620,6 +620,7 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitIndexDocTree(FString const& IndexTitle)
 {
 	TSharedPtr<DocTreeNode> IndexDocTree = MakeShared<DocTreeNode>();
+	IndexDocTree->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("index"));
 	IndexDocTree->AppendChildWithValueEscaped(TEXT("display_name"), IndexTitle);
 	IndexDocTree->AppendChild(TEXT("classes"));
 	IndexDocTree->AppendChild(TEXT("structs"));
@@ -645,6 +646,7 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::GetClassDocTree(UClass* Class, bool 
 TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 {
 	TSharedPtr<DocTreeNode> ClassDoc = MakeShared<DocTreeNode>();
+	ClassDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("class"));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	ClassDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
@@ -659,6 +661,7 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Struct)
 {
 	TSharedPtr<DocTreeNode> StructDoc = MakeShared<DocTreeNode>();
+	StructDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("struct"));
 	StructDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	StructDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
@@ -672,6 +675,7 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Str
 TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitEnumDocTree(UEnum* Enum)
 {
 	TSharedPtr<DocTreeNode> EnumDoc = MakeShared<DocTreeNode>();
+	EnumDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("enum"));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	EnumDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
@@ -737,6 +741,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	auto NodeDocsPath = State.ClassDocsPath / TEXT("nodes");
 
 	TSharedPtr<DocTreeNode> NodeDocFile = MakeShared<DocTreeNode>();
+	NodeDocFile->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("node"));
 	NodeDocFile->AppendChildWithValueEscaped("docs_name", DocsTitle);
 	NodeDocFile->AppendChildWithValueEscaped("class_id", State.ClassDocTree->FindChildByName("id")->GetValue());
 	NodeDocFile->AppendChildWithValueEscaped("class_name", State.ClassDocTree->FindChildByName("display_name")->GetValue());
