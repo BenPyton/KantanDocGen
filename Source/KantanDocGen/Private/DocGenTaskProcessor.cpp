@@ -279,7 +279,8 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 			Current->Task->NotifySetText(LOCTEXT("DocFinalizationFailed", "Doc gen failed - No nodes found"));
 			Current->Task->NotifySetCompletionState(SNotificationItem::CS_Fail);
 			Current->Task->NotifyExpireFadeOut();
-		});
+		}, [this] { Current->Task.Reset(); }); // Free the task
+		
 		// GEditor->PlayEditorSound(CompileSuccessSound);
 		return;
 	}
@@ -288,8 +289,9 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 	auto FinalizeResult = Async(EAsyncExecution::TaskGraphMainThread, [GameThread_FinalizeDocs, IntermediateDir]() {
 		return GameThread_FinalizeDocs(IntermediateDir);
 	});
-	if (!FinalizeResult.Get())
+	if (!FinalizeResult.Get()) // Block this until GameThread_FinalizeDocs has finished
 	{
+		Current->Task.Reset();
 		UE_LOG(LogKantanDocGen, Error, TEXT("Failed to finalize xml docs!"));
 		return;
 	}
@@ -336,7 +338,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 			Current->Task->NotifySetText(Msg);
 			Current->Task->NotifySetCompletionState(SNotificationItem::CS_Fail);
 			Current->Task->NotifyExpireFadeOut();
-		});
+		}, [this] { Current->Task.Reset(); }); // Free the task
 
 		// GEditor->PlayEditorSound(CompileSuccessSound);
 		return;
@@ -361,7 +363,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 		Current->Task->NotifySetCompletionState(SNotificationItem::CS_Success);
 		Current->Task->NotifySetHyperlink(FSimpleDelegate::CreateLambda(OnHyperlinkClicked), HyperlinkText);
 		Current->Task->NotifyExpireFadeOut();
-	});
+	}, [this] { Current->Task.Reset(); }); // Free the task
 }
 
 FDocGenTaskProcessor::FDocGenTask::FDocGenTask()
