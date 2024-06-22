@@ -5,6 +5,8 @@
 // Copyright (C) 2016-2017 Cameron Angus. All Rights Reserved.
 
 #include "NodeDocsGenerator.h"
+
+#include "AnimGraphNode_Base.h"
 #include "Async/Async.h"
 #include "BlueprintActionDatabase.h"
 #include "BlueprintBoundNodeSpawner.h"
@@ -1025,6 +1027,7 @@ bool FNodeDocsGenerator::IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, b
 	static const TSubclassOf<UK2Node> ExcludedNodeClasses[] = {
 		UK2Node_DynamicCast::StaticClass(),
 		UK2Node_Message::StaticClass(),
+		UAnimGraphNode_Base::StaticClass(),
 	};
 
 	// Function spawners for functions with any of the following metadata tags will also be excluded

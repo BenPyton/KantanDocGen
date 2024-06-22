@@ -19,6 +19,7 @@ public class KantanDocGen : ModuleRules
 		PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "../../ThirdParty/variant/include"));
 		PublicDependencyModuleNames.AddRange(
             new string[] {
+	            "AnimGraph",
                 "Core",
                 "CoreUObject",
                 "Engine",
