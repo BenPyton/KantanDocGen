@@ -16,10 +16,18 @@ EIntermediateProcessingResult DocGenXMLOutputProcessor::ProcessIntermediateDocs(
 		return EIntermediateProcessingResult::UnknownError;
 	}
 
+	// @TODO: Create a way to select which third-party tool to use for conversion.
 	const FString DocGenToolBinPath =
-		Plugin->GetBaseDir() / TEXT("ThirdParty") / TEXT("KantanDocGenTool") / TEXT("bin");
-	const FString DocGenToolExeName = TEXT("KantanDocGen.exe");
+		Plugin->GetBaseDir() / TEXT("ThirdParty") / TEXT("TransmuDoc") / TEXT("bin");
+	const FString DocGenToolExeName = TEXT("TransmuDoc.exe");
 	const FString DocGenToolPath = DocGenToolBinPath / DocGenToolExeName;
+
+	if (!FPaths::FileExists(DocGenToolPath))
+	{
+		UE_LOG(LogKantanDocGen, Error, TEXT("Failed to locate the conversion tool at: %s"), *DocGenToolPath);
+		// @TODO: create a new result value for file/folder location errors?
+		return EIntermediateProcessingResult::UnknownError;
+	}
 
 	// Create a read and write pipe for the child process
 	void* PipeRead = nullptr;

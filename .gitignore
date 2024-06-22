@@ -235,7 +235,10 @@ Intermediate/
 DerivedDataCache/
 Saved/
 Packaged/
-!ThirdParty/KantanDocGenTool/bin
-!ThirdParty/KantanDocGenTool/bin/*.dll
-!ThirdParty/KantanDocGenTool/bin/*.exe
+ThirdParty/TransmuDoc/*
+!ThirdParty/TransmuDoc/bin
+ThirdParty/TransmuDoc/bin/*
+!ThirdParty/TransmuDoc/bin/*.dll
+!ThirdParty/TransmuDoc/bin/*.exe
+!ThirdParty/TransmuDoc/xslt
 .ccls-cache
