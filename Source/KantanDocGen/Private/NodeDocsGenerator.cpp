@@ -288,7 +288,6 @@ public:
 	static bool GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTreeNode> ParentNode)
 	{
 		check(Struct && ParentNode.IsValid());
-		auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"));
 		bool bHasProperties = false;
 		for (TFieldIterator<FProperty> PropertyIterator(Struct);
 			PropertyIterator
@@ -300,6 +299,7 @@ public:
 
 			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s"), *Struct->GetName(), *PropertyIterator->GetNameCPP());
 
+			auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
 			auto Member = MemberList->AppendChild(TEXT("field"));
 			Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
 			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
@@ -622,9 +622,6 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitIndexDocTree(FString const& Inde
 	TSharedPtr<DocTreeNode> IndexDocTree = MakeShared<DocTreeNode>();
 	IndexDocTree->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("index"));
 	IndexDocTree->AppendChildWithValueEscaped(TEXT("display_name"), IndexTitle);
-	IndexDocTree->AppendChild(TEXT("classes"));
-	IndexDocTree->AppendChild(TEXT("structs"));
-	IndexDocTree->AppendChild(TEXT("enums"));
 	return IndexDocTree;
 }
 
@@ -653,8 +650,6 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 	ClassDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Class));
-	ClassDoc->AppendChild(TEXT("nodes"));
-	ClassDoc->AppendChild(TEXT("fields"));
 	return ClassDoc;
 }
 
@@ -668,7 +663,6 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Str
 	StructDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Struct));
-	StructDoc->AppendChild(TEXT("fields"));
 	return StructDoc;
 }
 
@@ -681,13 +675,12 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitEnumDocTree(UEnum* Enum)
 	EnumDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Enum));
-	EnumDoc->AppendChild(TEXT("values"));
 	return EnumDoc;
 }
 
 bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree, UClass* Class)
 {
-	auto DocTreeClassesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("classes"));
+	auto DocTreeClassesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("classes"), /*bCreate = */true);
 	auto DocTreeClass = DocTreeClassesElement->AppendChild("class");
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
@@ -699,7 +692,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree
 
 bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTree, UStruct* Struct)
 {
-	auto DocTreeStructsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("structs"));
+	auto DocTreeStructsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("structs"), /*bCreate = */true);
 	auto DocTreeStruct = DocTreeStructsElement->AppendChild("struct");
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
@@ -710,7 +703,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTre
 
 bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree, UEnum* Enum)
 {
-	auto DocTreeEnumsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("enums"));
+	auto DocTreeEnumsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("enums"), /*bCreate = */true);
 	auto DocTreeEnum = DocTreeEnumsElement->AppendChild("enum");
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
@@ -721,7 +714,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree,
 
 bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node)
 {
-	auto DocTreeNodesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("nodes"));
+	auto DocTreeNodesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("nodes"), /*bCreate = */true);
 	auto DocTreeNode = DocTreeNodesElement->AppendChild("node");
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("shorttitle"), FDocGenHelper::GetNodeShortTitle(Node));
@@ -813,19 +806,17 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	{
 		UE_LOG(LogKantanDocGen, Warning, TEXT("[KantanDocGen] Cannot get type for node %s "), *NodeFullTitle);
 	}
-	auto InputNode = NodeDocFile->AppendChild(TEXT("inputs"));
-	auto OutputNode = NodeDocFile->AppendChild(TEXT("outputs"));
 
 	for (auto Pin : Node->Pins)
 	{
 		TSharedPtr<DocTreeNode> ParamsNode = nullptr;
 		if (Pin->Direction == EEdGraphPinDirection::EGPD_Input)
 		{
-			ParamsNode = InputNode;
+			ParamsNode = FDocGenHelper::GetChildNode(NodeDocFile, TEXT("inputs"), /*bCreate = */true);
 		}
 		else if (Pin->Direction == EEdGraphPinDirection::EGPD_Output)
 		{
-			ParamsNode = OutputNode;
+			ParamsNode = FDocGenHelper::GetChildNode(NodeDocFile, TEXT("outputs"), /*bCreate = */true);
 		}
 
 		if (ParamsNode.IsValid())
@@ -920,7 +911,7 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *Type->GetName()));
 			}
 
-			auto ValueList = EnumDocTree->FindChildByName("values");
+			auto ValueList = FDocGenHelper::GetChildNode(EnumDocTree, TEXT("values"), /*bCreate = */true);
 			for (int32 EnumIndex = 0; EnumIndex < EnumInstance->NumEnums() - 1; ++EnumIndex)
 			{
 				bool const bShouldBeHidden = EnumInstance->HasMetaData(TEXT("Hidden"), EnumIndex) ||
