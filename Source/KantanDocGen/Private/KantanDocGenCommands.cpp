@@ -12,7 +12,7 @@
 
 void FKantanDocGenCommands::RegisterCommands()
 {
-	UI_COMMAND(ShowDocGenUI, "Kantan DocGen", "Shows the Kantan Doc Gen tab", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ShowDocGenUI, "Generate Documentation...", "Opens a dialog to generate documentation for Blueprint and Blueprint-exposed C++ classes.", EUserInterfaceActionType::Button, FInputChord());
 	NameToCommandMap.Add(TEXT("ShowDocGenUI"), ShowDocGenUI);
 }
 
