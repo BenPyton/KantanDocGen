@@ -73,10 +73,10 @@ protected:
 	bool UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node);
 	
 	static void AdjustNodeForSnapshot(UEdGraphNode* Node);
-	static FString GetClassDocId(UClass* Class);
-	static FString GetNodeDocId(UEdGraphNode* Node);
 	static UClass* MapToAssociatedClass(UK2Node* NodeInst, UObject* Source);
 	static bool IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, bool bIsBlueprint);
+
+	TSharedPtr<DocTreeNode> GetClassDocTree(UClass* Class, bool bCreate = false);
 
 protected:
 	TWeakObjectPtr< UBlueprint > DummyBP;
