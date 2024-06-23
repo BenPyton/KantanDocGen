@@ -44,12 +44,18 @@ void FKantanDocGenModule::StartupModule()
 
 		// Setup menu extension
 		auto AddMenuExtension = [](FMenuBuilder& MenuBuilder) {
-			MenuBuilder.AddMenuEntry(FKantanDocGenCommands::Get().ShowDocGenUI);
+			MenuBuilder.AddMenuEntry(FKantanDocGenCommands::Get().ShowDocGenUI
+				, NAME_None
+				, TAttribute<FText>()
+				, TAttribute<FText>()
+				, FSlateIcon(FAppStyle::GetAppStyleSetName(), "MainFrame.DocumentationHome")
+				, NAME_None
+			);
 		};
 
 		auto& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 		TSharedRef<FExtender> MenuExtender(new FExtender());
-		MenuExtender->AddMenuExtension(TEXT("FileProject"), EExtensionHook::After, UICommands.ToSharedRef(),
+		MenuExtender->AddMenuExtension(TEXT("Tools"), EExtensionHook::After, UICommands.ToSharedRef(),
 									   FMenuExtensionDelegate::CreateLambda(AddMenuExtension));
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
 

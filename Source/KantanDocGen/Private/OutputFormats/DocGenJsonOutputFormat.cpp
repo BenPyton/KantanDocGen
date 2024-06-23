@@ -4,14 +4,14 @@
 #include "OutputFormats/DocGenJsonOutputProcessor.h"
 #include "OutputFormats/DocGenOutputProcessor.h"
 
-FString DocGenJsonSerializer::EscapeString(const FString& InString)
+FString DocGenJsonSerializer::EscapeString(const FString& InString) const
 {
 	return InString;
 }
 
-FString DocGenJsonSerializer::GetFileExtension()
+FString DocGenJsonSerializer::GetFileExtension() const
 {
-	return ".json";
+	return TEXT(".json");
 }
 
 void DocGenJsonSerializer::SerializeObject(const DocTreeNode::Object& Obj)

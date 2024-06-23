@@ -5,6 +5,8 @@
 // Copyright (C) 2016-2017 Cameron Angus. All Rights Reserved.
 
 #include "NodeDocsGenerator.h"
+
+#include "AnimGraphNode_Base.h"
 #include "Async/Async.h"
 #include "BlueprintActionDatabase.h"
 #include "BlueprintBoundNodeSpawner.h"
@@ -146,6 +148,13 @@ public:
 #endif
 	}
 
+	static const FString& GetBoolString(bool Value)
+	{
+		static const FString True = TEXT("true");
+		static const FString False = TEXT("false");
+		return (Value) ? True : False;
+	}
+
 	static FString GetNodeShortTitle(const UEdGraphNode* Node)
 	{
 		return Node->GetNodeTitle(ENodeTitleType::ListView).ToString().TrimEnd();
@@ -168,6 +177,16 @@ public:
 			return FString();
 
 		return NodeDesc;
+	}
+
+	static FString GetTypeSignature(const FProperty* Property)
+	{
+		check(Property);
+		FString ExtendedParameters;
+		FString ParamConst = (Property->PropertyFlags & CPF_ConstParm) ? TEXT("const ") : TEXT("");
+		FString ParamRef = (Property->PropertyFlags & CPF_ReferenceParm) ? TEXT("&") : TEXT("");
+		FString ParamType = Property->GetCPPType(&ExtendedParameters);
+		return ParamConst + ParamType + ExtendedParameters + ParamRef;
 	}
 
 	// UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
@@ -193,6 +212,16 @@ public:
 
 		FString Description = Field->GetToolTipText().ToString();
 		if (Description == GetObjectRawDisplayName(Field))
+			return FString();
+
+		return Description;
+	}
+
+	static FString GetDescription(const FField* Field)
+	{
+		check(Field);
+		FString Description = Field->GetToolTipText().ToString();
+		if (Description == GetRawDisplayName(Field->GetName()))
 			return FString();
 
 		return Description;
@@ -289,23 +318,24 @@ public:
 	{
 		check(Struct && ParentNode.IsValid());
 		bool bHasProperties = false;
-		for (TFieldIterator<FProperty> PropertyIterator(Struct);
-			PropertyIterator
-			&& ((PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit))
-				|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated)));
-			++PropertyIterator)
+		for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
 		{
+			if (!(PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit)
+					|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))))
+				continue;
+
 			bHasProperties = true;
 
-			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s"), *Struct->GetName(), *PropertyIterator->GetNameCPP());
+			UStruct* Parent = Struct->GetSuperStruct();
+			const bool bInherited = Parent && PropertyIterator->IsInContainer(Parent);
+			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s (inherited: %d [parent: %s])"), *Struct->GetName(), *PropertyIterator->GetNameCPP(), bInherited, *GetNameSafe(Parent));
 
 			auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
 			auto Member = MemberList->AppendChild(TEXT("field"));
 			Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
 			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
-			FString ExtendedTypeString;
-			FString TypeString = PropertyIterator->GetCPPType(&ExtendedTypeString);
-			Member->AppendChildWithValueEscaped("type", TypeString + ExtendedTypeString);
+			Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
+			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 
 			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
 			{
@@ -322,8 +352,7 @@ public:
 			const bool bHasComment = GenerateDoxygenNode(*PropertyIterator, Member);
 
 			// Avoid any property that is part of the superclass and then "redefined" in this Class
-			const bool bIsInSuper = PropertyIterator->IsInContainer(Struct->GetSuperStruct());
-			if (bIsInSuper == false && bHasComment == false)
+			if (bInherited == false && bHasComment == false)
 			{
 				const bool IsPublic = PropertyIterator->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic);
 				const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
@@ -461,7 +490,7 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	auto NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet {}, FVector2D(0, 0));
 
 	// Currently Blueprint nodes only
-	auto K2NodeInst = Cast<UK2Node>(NodeInst);
+	const auto K2NodeInst = Cast< UK2Node >(NodeInst);
 
 	if (K2NodeInst == nullptr)
 	{
@@ -470,7 +499,7 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 		return nullptr;
 	}
 
-	auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
+	const auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
 
 	// Create the class doc tree if necessary.
 	GetClassDocTree(AssociatedClass, /*bCreate = */true);
@@ -752,16 +781,13 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		{
 			NodeDocFile->AppendChildWithValueEscaped("funcname", Func->GetAuthoredName());
 			NodeDocFile->AppendChildWithValueEscaped("rawcomment", Func->GetMetaData(TEXT("Comment")));
-			NodeDocFile->AppendChildWithValue("static", Func->HasAnyFunctionFlags(FUNC_Static) ? "true" : "false");
-			NodeDocFile->AppendChildWithValue("autocast",
-											  Func->HasMetaData(TEXT("BlueprintAutocast")) ? "true" : "false");
+			NodeDocFile->AppendChildWithValue("static", FDocGenHelper::GetBoolString(Func->HasAnyFunctionFlags(FUNC_Static)));
+			NodeDocFile->AppendChildWithValue("autocast", FDocGenHelper::GetBoolString(Func->HasMetaData(TEXT("BlueprintAutocast"))));
 			TArray<FStringFormatArg> Args;
 
 			if (FProperty* RetProp = Func->GetReturnProperty())
 			{
-				FString ExtendedParameters;
-				FString RetValType = RetProp->GetCPPType(&ExtendedParameters);
-				Args.Add({RetValType + ExtendedParameters});
+				Args.Add({FDocGenHelper::GetTypeSignature(RetProp)});
 			}
 			else
 			{
@@ -769,21 +795,20 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 			}
 			Args.Add({Func->GetAuthoredName()});
 			FString FuncParams;
-			for (TFieldIterator<FProperty> PropertyIterator(Func);
-				 PropertyIterator && (PropertyIterator->PropertyFlags & CPF_Parm | CPF_Parm); ++PropertyIterator)
+			for (TFieldIterator<FProperty> PropertyIterator(Func); PropertyIterator; ++PropertyIterator)
 			{
-				FProperty* FuncParameter = *PropertyIterator;
+				UE_LOG(LogKantanDocGen, Display, TEXT("Found property %s in %s"), *PropertyIterator->GetName(), *Func->GetAuthoredName());
+
+				if (!(PropertyIterator->PropertyFlags & CPF_Parm))
+					continue;
 
 				// Skip the return type as we handled it earlier
-				if (FuncParameter->HasAllPropertyFlags(CPF_ReturnParm))
+				if (PropertyIterator->HasAllPropertyFlags(CPF_ReturnParm))
 				{
 					continue;
 				}
 
-				FString ExtendedParameters;
-				FString ParamType = FuncParameter->GetCPPType(&ExtendedParameters);
-
-				FString ParamString = ParamType + ExtendedParameters + " " + FuncParameter->GetAuthoredName();
+				FString ParamString = FDocGenHelper::GetTypeSignature(*PropertyIterator) + TEXT(" ") + PropertyIterator->GetAuthoredName();
 				if (FuncParams.Len() != 0)
 				{
 					FuncParams.Append(", ");
@@ -825,12 +850,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 	}
 
-	for (const auto& FactoryObject : OutputFormats)
-	{
-		auto Serializer = FactoryObject->CreateSerializer();
-		NodeDocFile->SerializeWith(Serializer);
-		Serializer->SaveToFile(NodeDocsPath, FDocGenHelper::GetDocId(Node));
-	}
+	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, FDocGenHelper::GetDocId(Node), OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
 	{
@@ -888,16 +908,22 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 					FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Type->GetName()));
 				}
 
-				FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
+				const bool bIsBlueprintable = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
+				const bool bIsBlueprintType = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
+				bool bShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
+				bShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
 
-				StructDocTreeMap.Add(Struct, StructDocTree);
-				UpdateIndexDocWithStruct(IndexTree, Struct);
+				if (bShouldBeDocumented)
+				{
+					StructDocTreeMap.Add(Struct, StructDocTree);
+					UpdateIndexDocWithStruct(IndexTree, Struct);
+				}
 			}
 		}
 		else if (Type->GetClass() == UEnum::StaticClass())
 		{
 			UEnum* EnumInstance = Cast<UEnum>(Type);
-			if ((EnumInstance != NULL) && EnumInstance->HasAnyFlags(RF_NeedLoad))
+			if ((EnumInstance != nullptr) && EnumInstance->HasAnyFlags(RF_NeedLoad))
 			{
 				EnumInstance->GetLinker()->Preload(EnumInstance);
 			}
@@ -911,23 +937,29 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *Type->GetName()));
 			}
 
+			bool bShouldBeDocumented = EnumInstance->HasMetaData(*FBlueprintMetadata::MD_AllowableBlueprintVariableType.ToString());
+
 			auto ValueList = FDocGenHelper::GetChildNode(EnumDocTree, TEXT("values"), /*bCreate = */true);
 			for (int32 EnumIndex = 0; EnumIndex < EnumInstance->NumEnums() - 1; ++EnumIndex)
 			{
 				bool const bShouldBeHidden = EnumInstance->HasMetaData(TEXT("Hidden"), EnumIndex) ||
 											 EnumInstance->HasMetaData(TEXT("Spacer"), EnumIndex);
-				if (!bShouldBeHidden)
-				{
-					auto Value = ValueList->AppendChild("value");
-					Value->AppendChildWithValueEscaped("name", EnumInstance->GetNameStringByIndex(EnumIndex));
-					Value->AppendChildWithValueEscaped("displayname",
-													   EnumInstance->GetDisplayNameTextByIndex(EnumIndex).ToString());
-					Value->AppendChildWithValueEscaped("description",
-													   EnumInstance->GetToolTipTextByIndex(EnumIndex).ToString());
-				}
+				if (bShouldBeHidden)
+					continue;
+
+				auto Value = ValueList->AppendChild("value");
+				Value->AppendChildWithValueEscaped("name", EnumInstance->GetNameStringByIndex(EnumIndex));
+				Value->AppendChildWithValueEscaped("displayname",
+													EnumInstance->GetDisplayNameTextByIndex(EnumIndex).ToString());
+				Value->AppendChildWithValueEscaped("description",
+													EnumInstance->GetToolTipTextByIndex(EnumIndex).ToString());
 			}
-			UpdateIndexDocWithEnum(IndexTree, EnumInstance);
-			EnumDocTreeMap.Add(EnumInstance, EnumDocTree);
+
+			if (bShouldBeDocumented)
+			{
+				UpdateIndexDocWithEnum(IndexTree, EnumInstance);
+				EnumDocTreeMap.Add(EnumInstance, EnumDocTree);
+			}
 		}
 	}
 
@@ -1025,6 +1057,7 @@ bool FNodeDocsGenerator::IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, b
 	static const TSubclassOf<UK2Node> ExcludedNodeClasses[] = {
 		UK2Node_DynamicCast::StaticClass(),
 		UK2Node_Message::StaticClass(),
+		UAnimGraphNode_Base::StaticClass(),
 	};
 
 	// Function spawners for functions with any of the following metadata tags will also be excluded

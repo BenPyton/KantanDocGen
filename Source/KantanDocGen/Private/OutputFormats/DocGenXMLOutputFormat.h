@@ -10,8 +10,8 @@ class DocGenXMLSerializer : public DocTreeNode::IDocTreeSerializer
 {
 	TSharedPtr<class FXmlFile> TopLevelFile;
 	class FXmlNode* TargetNode;
-	virtual FString EscapeString(const FString& InString) override;
-	virtual FString GetFileExtension() override;
+	virtual FString EscapeString(const FString& InString) const override;
+	virtual FString GetFileExtension() const override;
 	virtual void SerializeObject(const DocTreeNode::Object& Obj) override;
 	virtual void SerializeString(const FString& InString) override;
 	virtual void SerializeNull() override;
