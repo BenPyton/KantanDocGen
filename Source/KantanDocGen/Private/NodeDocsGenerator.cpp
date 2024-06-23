@@ -908,16 +908,22 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 					FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Type->GetName()));
 				}
 
-				FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
+				const bool bIsBlueprintable = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
+				const bool bIsBlueprintType = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
+				bool bShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
+				bShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
 
-				StructDocTreeMap.Add(Struct, StructDocTree);
-				UpdateIndexDocWithStruct(IndexTree, Struct);
+				if (bShouldBeDocumented)
+				{
+					StructDocTreeMap.Add(Struct, StructDocTree);
+					UpdateIndexDocWithStruct(IndexTree, Struct);
+				}
 			}
 		}
 		else if (Type->GetClass() == UEnum::StaticClass())
 		{
 			UEnum* EnumInstance = Cast<UEnum>(Type);
-			if ((EnumInstance != NULL) && EnumInstance->HasAnyFlags(RF_NeedLoad))
+			if ((EnumInstance != nullptr) && EnumInstance->HasAnyFlags(RF_NeedLoad))
 			{
 				EnumInstance->GetLinker()->Preload(EnumInstance);
 			}
@@ -931,23 +937,29 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 				FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *Type->GetName()));
 			}
 
+			bool bShouldBeDocumented = EnumInstance->HasMetaData(*FBlueprintMetadata::MD_AllowableBlueprintVariableType.ToString());
+
 			auto ValueList = FDocGenHelper::GetChildNode(EnumDocTree, TEXT("values"), /*bCreate = */true);
 			for (int32 EnumIndex = 0; EnumIndex < EnumInstance->NumEnums() - 1; ++EnumIndex)
 			{
 				bool const bShouldBeHidden = EnumInstance->HasMetaData(TEXT("Hidden"), EnumIndex) ||
 											 EnumInstance->HasMetaData(TEXT("Spacer"), EnumIndex);
-				if (!bShouldBeHidden)
-				{
-					auto Value = ValueList->AppendChild("value");
-					Value->AppendChildWithValueEscaped("name", EnumInstance->GetNameStringByIndex(EnumIndex));
-					Value->AppendChildWithValueEscaped("displayname",
-													   EnumInstance->GetDisplayNameTextByIndex(EnumIndex).ToString());
-					Value->AppendChildWithValueEscaped("description",
-													   EnumInstance->GetToolTipTextByIndex(EnumIndex).ToString());
-				}
+				if (bShouldBeHidden)
+					continue;
+
+				auto Value = ValueList->AppendChild("value");
+				Value->AppendChildWithValueEscaped("name", EnumInstance->GetNameStringByIndex(EnumIndex));
+				Value->AppendChildWithValueEscaped("displayname",
+													EnumInstance->GetDisplayNameTextByIndex(EnumIndex).ToString());
+				Value->AppendChildWithValueEscaped("description",
+													EnumInstance->GetToolTipTextByIndex(EnumIndex).ToString());
 			}
-			UpdateIndexDocWithEnum(IndexTree, EnumInstance);
-			EnumDocTreeMap.Add(EnumInstance, EnumDocTree);
+
+			if (bShouldBeDocumented)
+			{
+				UpdateIndexDocWithEnum(IndexTree, EnumInstance);
+				EnumDocTreeMap.Add(EnumInstance, EnumDocTree);
+			}
 		}
 	}
 
