@@ -179,6 +179,16 @@ public:
 		return NodeDesc;
 	}
 
+	static FString GetTypeSignature(const FProperty* Property)
+	{
+		check(Property);
+		FString ExtendedParameters;
+		FString ParamConst = (Property->PropertyFlags & CPF_ConstParm) ? TEXT("const ") : TEXT("");
+		FString ParamRef = (Property->PropertyFlags & CPF_ReferenceParm) ? TEXT("&") : TEXT("");
+		FString ParamType = Property->GetCPPType(&ExtendedParameters);
+		return ParamConst + ParamType + ExtendedParameters + ParamRef;
+	}
+
 	// UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
 	static FString GetDisplayName(const UField* Field)
 	{
@@ -324,9 +334,7 @@ public:
 			auto Member = MemberList->AppendChild(TEXT("field"));
 			Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
 			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
-			FString ExtendedTypeString;
-			FString TypeString = PropertyIterator->GetCPPType(&ExtendedTypeString);
-			Member->AppendChildWithValueEscaped("type", TypeString + ExtendedTypeString);
+			Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
 			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 
 			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
@@ -779,9 +787,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 
 			if (FProperty* RetProp = Func->GetReturnProperty())
 			{
-				FString ExtendedParameters;
-				FString RetValType = RetProp->GetCPPType(&ExtendedParameters);
-				Args.Add({RetValType + ExtendedParameters});
+				Args.Add({FDocGenHelper::GetTypeSignature(RetProp)});
 			}
 			else
 			{
@@ -789,21 +795,20 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 			}
 			Args.Add({Func->GetAuthoredName()});
 			FString FuncParams;
-			for (TFieldIterator<FProperty> PropertyIterator(Func);
-				 PropertyIterator && (PropertyIterator->PropertyFlags & CPF_Parm | CPF_Parm); ++PropertyIterator)
+			for (TFieldIterator<FProperty> PropertyIterator(Func); PropertyIterator; ++PropertyIterator)
 			{
-				FProperty* FuncParameter = *PropertyIterator;
+				UE_LOG(LogKantanDocGen, Display, TEXT("Found property %s in %s"), *PropertyIterator->GetName(), *Func->GetAuthoredName());
+
+				if (!(PropertyIterator->PropertyFlags & CPF_Parm))
+					continue;
 
 				// Skip the return type as we handled it earlier
-				if (FuncParameter->HasAllPropertyFlags(CPF_ReturnParm))
+				if (PropertyIterator->HasAllPropertyFlags(CPF_ReturnParm))
 				{
 					continue;
 				}
 
-				FString ExtendedParameters;
-				FString ParamType = FuncParameter->GetCPPType(&ExtendedParameters);
-
-				FString ParamString = ParamType + ExtendedParameters + " " + FuncParameter->GetAuthoredName();
+				FString ParamString = FDocGenHelper::GetTypeSignature(*PropertyIterator) + TEXT(" ") + PropertyIterator->GetAuthoredName();
 				if (FuncParams.Len() != 0)
 				{
 					FuncParams.Append(", ");
@@ -845,12 +850,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 	}
 
-	for (const auto& FactoryObject : OutputFormats)
-	{
-		auto Serializer = FactoryObject->CreateSerializer();
-		NodeDocFile->SerializeWith(Serializer);
-		Serializer->SaveToFile(NodeDocsPath, FDocGenHelper::GetDocId(Node));
-	}
+	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, FDocGenHelper::GetDocId(Node), OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
 	{
