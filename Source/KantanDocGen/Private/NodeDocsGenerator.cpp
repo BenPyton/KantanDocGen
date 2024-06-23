@@ -201,6 +201,13 @@ public:
 		return Field ? Field->GetDisplayNameText().ToString() : FString("None");
 	}
 
+	// Forward GetDisplayName if called on a TWeakObjectPtr<>
+	template<typename T>
+	static FString GetDisplayName(const TWeakObjectPtr<T>& Ptr)
+	{
+		return GetDisplayName(Ptr.Get());
+	}
+
 	static FString GetDescription(const UField* Field)
 	{
 		check(Field);
@@ -435,10 +442,11 @@ public:
 	{
 		for (const auto& Entry : Map)
 		{
-			auto DocId = GetDocId(Entry.Key);
+			FString DocId = GetDocId(Entry.Key);
+			FString DocDisplayName = GetDisplayName(Entry.Key).Replace(TEXT(" "), TEXT("-"));
 			const auto DocPath = OutputDirectory / DocId;
 			FDocGenHelper::CreateImgDir(DocPath);
-			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocId, OutputFormats);
+			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocDisplayName, OutputFormats);
 		}
 	}
 };
@@ -767,7 +775,8 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	NodeDocFile->AppendChildWithValueEscaped("docs_name", DocsTitle);
 	NodeDocFile->AppendChildWithValueEscaped("class_id", State.ClassDocTree->FindChildByName("id")->GetValue());
 	NodeDocFile->AppendChildWithValueEscaped("class_name", State.ClassDocTree->FindChildByName("display_name")->GetValue());
-	NodeDocFile->AppendChildWithValueEscaped("shorttitle", FDocGenHelper::GetNodeShortTitle(Node));
+	FString NodeShortTitle = FDocGenHelper::GetNodeShortTitle(Node);
+	NodeDocFile->AppendChildWithValueEscaped("shorttitle", NodeShortTitle);
 	FString NodeFullTitle = FDocGenHelper::GetNodeFullTitle(Node);
 	NodeDocFile->AppendChildWithValueEscaped("fulltitle", NodeFullTitle);
 	NodeDocFile->AppendChildWithValueEscaped("description", FDocGenHelper::GetNodeDescription(Node));
@@ -850,7 +859,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 	}
 
-	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, FDocGenHelper::GetDocId(Node), OutputFormats);
+	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, NodeShortTitle.Replace(TEXT(" "), TEXT("-")), OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
 	{
