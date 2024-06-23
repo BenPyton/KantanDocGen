@@ -21,6 +21,7 @@
 #include "HighResScreenshot.h"
 #include "K2Node_DynamicCast.h"
 #include "K2Node_Message.h"
+#include "K2Node_ComponentBoundEvent.h"
 #include "KantanDocGenLog.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -34,6 +35,11 @@
 #include "Stats/StatsMisc.h"
 #include "TextureResource.h"
 #include "ThreadingHelpers.h"
+#include "BlueprintVariableNodeSpawner.h"
+#include "BlueprintDelegateNodeSpawner.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Variable.h"
+#include <BlueprintBoundEventNodeSpawner.h>
 
 #define ENABLE_TEAMCITY_LOGS 1
 
@@ -169,7 +175,17 @@ public:
 
 	static FString GetNodeDescription(const UEdGraphNode* Node)
 	{
-		FString NodeDesc = Node->GetTooltipText().ToString();
+		FString NodeDesc;
+		if (const auto* NodeVar = Cast<UK2Node_Variable>(Node))
+		{
+			FProperty* Property = NodeVar->GetPropertyForVariable();
+			return GetDescription(Property);
+		}
+		else
+		{
+			NodeDesc = Node->GetTooltipText().ToString();
+		}
+
 		TrimTarget(NodeDesc);
 
 		const FString DefaultDescription = GetObjectRawDisplayName(Node);
@@ -495,7 +511,39 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	}
 
 	// Spawn an instance into the graph
-	auto NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet {}, FVector2D(0, 0));
+	UEdGraphNode* NodeInst = nullptr;
+	if (Spawner->IsA<UBlueprintBoundEventNodeSpawner>())
+	{
+		UBlueprintBoundEventNodeSpawner* BlueprintBoundEventNodeSpawner = Cast<UBlueprintBoundEventNodeSpawner>(Spawner);
+
+		//FMulticastDelegateProperty const* DelegateProperty = BlueprintBoundEventNodeSpawner->GetEventDelegate();
+		//
+		//// Create a new event node
+		//NodeInst = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_ComponentBoundEvent>(
+		//	Graph.Get(),
+		//	FVector2D(0, 0),
+		//	EK2NewNodeFlags::SelectNewNode,
+		//	[DelegateProperty](UK2Node_ComponentBoundEvent* NewInstance)
+		//	{
+		//		UClass* ComponentOwnerClass = DelegateProperty->GetOwnerClass();
+		//		NewInstance->ComponentPropertyName = ComponentOwnerClass->GetFName();
+		//		NewInstance->DelegatePropertyName = DelegateProperty->GetFName();
+		//		NewInstance->DelegateOwnerClass = CastChecked<UClass>(DelegateProperty->GetOwner<UObject>())->GetAuthoritativeClass();
+		//
+		//		NewInstance->EventReference.SetFromField<UFunction>(DelegateProperty->SignatureFunction, /*bIsConsideredSelfContext =*/false);
+		//
+		//		NewInstance->CustomFunctionName = FName(*FString::Printf(TEXT("BndEvt__%s_%s_%s_%s"), *NewInstance->GetBlueprint()->GetName(), *DelegateProperty->GetName(), *NewInstance->GetName(), *NewInstance->EventReference.GetMemberName().ToString()));
+		//		NewInstance->bOverrideFunction = false;
+		//		NewInstance->bInternalEvent = true;
+		//	}
+		//);
+
+		NodeInst = BlueprintBoundEventNodeSpawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet{}, FVector2D(0, 0));
+	}
+	else
+	{
+		NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet{}, FVector2D(0, 0));
+	}
 
 	// Currently Blueprint nodes only
 	const auto K2NodeInst = Cast< UK2Node >(NodeInst);
@@ -521,6 +569,10 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 
 bool FNodeDocsGenerator::GT_Finalize(FString OutputPath)
 {
+	if (!SaveVariableDocFile(OutputPath))
+	{
+		return false;
+	}
 	if (!SaveClassDocFile(OutputPath))
 	{
 		return false;
@@ -677,6 +729,21 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::GetClassDocTree(UClass* Class, bool 
 	return NewClassDocTree;
 }
 
+TSharedPtr<DocTreeNode> FNodeDocsGenerator::GetVariableDocTree(const FString& VariableId, bool& bFound, bool bCreate /* = false*/)
+{
+	TSharedPtr<DocTreeNode>* FoundDocTree = VariableDocTreeMap.Find(VariableId);
+	bFound = (nullptr != FoundDocTree);
+	if (FoundDocTree)
+		return *FoundDocTree;
+
+	if (!bCreate)
+		return nullptr;
+
+	TSharedPtr<DocTreeNode> NewDocTree = MakeShared<DocTreeNode>();
+	VariableDocTreeMap.Add(VariableId, NewDocTree);
+	return NewDocTree;
+}
+
 TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 {
 	TSharedPtr<DocTreeNode> ClassDoc = MakeShared<DocTreeNode>();
@@ -757,6 +824,22 @@ bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree,
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("shorttitle"), FDocGenHelper::GetNodeShortTitle(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetNodeDescription(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Node));
+	return true;
+}
+
+bool FNodeDocsGenerator::UpdateClassDocWithVariable(TSharedPtr<DocTreeNode> DocTree, UK2Node_Variable* Node)
+{
+	FProperty* Property = Node->GetPropertyForVariable();
+	auto DocTreeNodesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("variables"), /*bCreate = */true);
+	auto DocTreeNode = DocTreeNodesElement->AppendChild("variable");
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Node));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Property));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Property));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Node));
+
+	FString ExtendedParameters;
+	FString PropType = Property->GetCPPType(&ExtendedParameters);
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("variable_type"), PropType + ExtendedParameters);
 	return true;
 }
 
@@ -862,6 +945,86 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, NodeShortTitle.Replace(TEXT(" "), TEXT("-")), OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool FNodeDocsGenerator::GenerateVariableDocTree(UK2Node_Variable* Node, FNodeProcessingState& State)
+{
+	SCOPE_SECONDS_COUNTER(GenerateNodeDocsTime);
+
+	FString VariableId = FDocGenHelper::GetDocId(Node);
+	FString ClassId = State.ClassDocTree->FindChildByName("id")->GetValue();
+
+	UE_LOG(
+		LogKantanDocGen,
+		Warning, TEXT("GenerateVariableDocs %s (%s)"),
+		*VariableId,
+		*ClassId
+	);
+
+	bool VariableExists = false;
+	TSharedPtr<DocTreeNode> VarDocFile = GetVariableDocTree(ClassId / VariableId, VariableExists, /*bCreate = */true);
+
+	const FString NodeName = Node->GetClass()->GetName();
+	if (NodeName.EndsWith(TEXT("Get")))
+		VarDocFile->AppendChildWithValueEscaped("imgpath_get", State.RelImageBasePath / State.ImageFilename);
+	else if (NodeName.EndsWith(TEXT("Set")))
+		VarDocFile->AppendChildWithValueEscaped("imgpath_set", State.RelImageBasePath / State.ImageFilename);
+
+	if (VariableExists)
+	{
+		UE_LOG(LogKantanDocGen, Error, TEXT("Already existing variable %s, node: %s"), *(ClassId / VariableId), *NodeName);
+		return true;
+	}
+
+	UE_LOG(LogKantanDocGen, Error, TEXT("New variable %s, node: %s"), *(ClassId / VariableId), *NodeName);
+
+	FProperty* Property = Node->GetPropertyForVariable();
+	VarDocFile->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("variable"));
+	VarDocFile->AppendChildWithValueEscaped("docs_name", DocsTitle);
+	VarDocFile->AppendChildWithValueEscaped("class_id", State.ClassDocTree->FindChildByName("id")->GetValue());
+	VarDocFile->AppendChildWithValueEscaped("class_name", State.ClassDocTree->FindChildByName("display_name")->GetValue());
+	VarDocFile->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(Property));
+	VarDocFile->AppendChildWithValueEscaped("description", FDocGenHelper::GetNodeDescription(Node));
+	VarDocFile->AppendChildWithValueEscaped("category", Node->GetMenuCategory().ToString());
+
+#if false // @TODO: Is it needed?
+	for (auto Pin : Node->Pins)
+	{
+		TSharedPtr<DocTreeNode> ParamsNode = nullptr;
+		if (Pin->Direction == EEdGraphPinDirection::EGPD_Input)
+		{
+			ParamsNode = FDocGenHelper::GetChildNode(VarDocFile, TEXT("inputs"), /*bCreate = */true);
+		}
+		else if (Pin->Direction == EEdGraphPinDirection::EGPD_Output)
+		{
+			ParamsNode = FDocGenHelper::GetChildNode(VarDocFile, TEXT("outputs"), /*bCreate = */true);
+		}
+
+		if (ParamsNode.IsValid())
+		{
+			FDocGenHelper::GenerateParamNode(Pin, ParamsNode);
+		}
+	}
+#endif
+
+#if false // Serialization should be done later
+	for (const auto& FactoryObject : OutputFormats)
+	{
+		FString NodeDocsPath = State.ClassDocsPath / TEXT("nodes");
+		FString DocFilePath = NodeDocsPath / (VariableId + TEXT(".xml"));
+
+		auto Serializer = FactoryObject->CreateSerializer();
+		VarDocFile->SerializeWith(Serializer);
+		Serializer->SaveToFile(NodeDocsPath, FDocGenHelper::GetDocId(Node));
+	}
+#endif
+
+	if (!UpdateClassDocWithVariable(State.ClassDocTree, Node))
 	{
 		return false;
 	}
@@ -999,6 +1162,25 @@ bool FNodeDocsGenerator::SaveStructDocFile(FString const& OutDir)
 	return true;
 }
 
+bool FNodeDocsGenerator::SaveVariableDocFile(FString const& OutDir)
+{
+	// Don't use SerializeDocMap because it's a different process
+	for (const auto& Pair : VariableDocTreeMap)
+	{
+		const auto Variable = Pair.Value;
+		check(Variable.IsValid());
+
+		int SplitIndex = 0;
+		FString ClassId, VariableId;
+		const bool bSplitted = Pair.Key.Split("/", &ClassId, &VariableId);
+		check(bSplitted);
+		const auto DocPath = OutDir / ClassId / TEXT("variables");
+
+		FDocGenHelper::SerializeDocToFile(Variable, DocPath, VariableId, OutputFormats);
+	}
+	return true;
+}
+
 void FNodeDocsGenerator::AdjustNodeForSnapshot(UEdGraphNode* Node)
 {
 	// Hide default value box containing 'self' for Target pin
@@ -1051,7 +1233,7 @@ bool FNodeDocsGenerator::IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, b
 {
 	// Spawners of or deriving from the following classes will be excluded
 	static const TSubclassOf<UBlueprintNodeSpawner> ExcludedSpawnerClasses[] = {
-		UBlueprintVariableNodeSpawner::StaticClass(),
+		// UBlueprintVariableNodeSpawner::StaticClass(),
 		UBlueprintDelegateNodeSpawner::StaticClass(),
 		UBlueprintBoundNodeSpawner::StaticClass(),
 		UBlueprintComponentNodeSpawner::StaticClass(),

@@ -53,6 +53,7 @@ public:
 	/** Callable from background thread */
 	bool GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingState& State);
 	bool GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState& State);
+	bool GenerateVariableDocTree(UK2Node_Variable* Node, FNodeProcessingState& State);
 	bool GenerateTypeMembers(UObject* Type);
 	/**/
 
@@ -62,6 +63,7 @@ protected:
 	bool SaveClassDocFile(FString const& OutDir);
 	bool SaveEnumDocFile(FString const& OutDir);
 	bool SaveStructDocFile(FString const& OutDir);
+	bool SaveVariableDocFile(FString const& OutDir);
 
 	TSharedPtr<DocTreeNode> InitIndexDocTree(FString const& IndexTitle);
 	TSharedPtr<DocTreeNode> InitClassDocTree(UClass* Class);
@@ -71,12 +73,14 @@ protected:
 	bool UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTree, UStruct* Struct);
 	bool UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree, UEnum* Enum);
 	bool UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node);
-	
+	bool UpdateClassDocWithVariable(TSharedPtr<DocTreeNode> DocTree, UK2Node_Variable* Node);
+
 	static void AdjustNodeForSnapshot(UEdGraphNode* Node);
 	static UClass* MapToAssociatedClass(UK2Node* NodeInst, UObject* Source);
 	static bool IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, bool bIsBlueprint);
 
 	TSharedPtr<DocTreeNode> GetClassDocTree(UClass* Class, bool bCreate = false);
+	TSharedPtr<DocTreeNode> GetVariableDocTree(const FString& VariableId, bool& bFound, bool bCreate = false);
 
 protected:
 	TWeakObjectPtr< UBlueprint > DummyBP;
@@ -88,6 +92,7 @@ protected:
 	TMap<TWeakObjectPtr<UClass>, TSharedPtr<DocTreeNode>> ClassDocTreeMap;
 	TMap<TWeakObjectPtr<UStruct>, TSharedPtr<DocTreeNode>> StructDocTreeMap;
 	TMap<TWeakObjectPtr<UEnum>, TSharedPtr<DocTreeNode>> EnumDocTreeMap;
+	TMap<FString, TSharedPtr<DocTreeNode>> VariableDocTreeMap;
 	TArray<UDocGenOutputFormatFactoryBase*> OutputFormats;
 	FString OutputDir;
 	bool SaveAllFormats(FString const& OutDir, TSharedPtr<DocTreeNode> Document){ return false; };
