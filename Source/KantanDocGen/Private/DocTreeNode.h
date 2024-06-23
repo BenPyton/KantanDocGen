@@ -66,6 +66,20 @@ public:
 			return TSharedPtr<DocTreeNode>();
 		}
 	}
+
+	TSharedPtr<DocTreeNode> FindChildByPredicate(TFunction<bool(const TSharedPtr<DocTreeNode>&)> Predicate) const
+	{
+		const Object* ObjPtr = Value.TryGet<Object>();
+		check(ObjPtr);
+		for (const auto& Pair : *ObjPtr)
+		{
+			if (Predicate(Pair.Value))
+				return Pair.Value;
+		}
+
+		return nullptr;
+	}
+
 	TSharedPtr<DocTreeNode> AppendChild(const FString& ChildName)
 	{
 		if (CurrentDataType == InternalDataType::Null)

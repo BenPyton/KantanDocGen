@@ -148,6 +148,13 @@ public:
 #endif
 	}
 
+	static const FString& GetBoolString(bool Value)
+	{
+		static const FString True = TEXT("true");
+		static const FString False = TEXT("false");
+		return (Value) ? True : False;
+	}
+
 	static FString GetNodeShortTitle(const UEdGraphNode* Node)
 	{
 		return Node->GetNodeTitle(ENodeTitleType::ListView).ToString().TrimEnd();
@@ -195,6 +202,16 @@ public:
 
 		FString Description = Field->GetToolTipText().ToString();
 		if (Description == GetObjectRawDisplayName(Field))
+			return FString();
+
+		return Description;
+	}
+
+	static FString GetDescription(const FField* Field)
+	{
+		check(Field);
+		FString Description = Field->GetToolTipText().ToString();
+		if (Description == GetRawDisplayName(Field->GetName()))
 			return FString();
 
 		return Description;
@@ -291,15 +308,17 @@ public:
 	{
 		check(Struct && ParentNode.IsValid());
 		bool bHasProperties = false;
-		for (TFieldIterator<FProperty> PropertyIterator(Struct);
-			PropertyIterator
-			&& ((PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit))
-				|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated)));
-			++PropertyIterator)
+		for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
 		{
+			if (!(PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit)
+					|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))))
+				continue;
+
 			bHasProperties = true;
 
-			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s"), *Struct->GetName(), *PropertyIterator->GetNameCPP());
+			UStruct* Parent = Struct->GetSuperStruct();
+			const bool bInherited = Parent && PropertyIterator->IsInContainer(Parent);
+			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s (inherited: %d [parent: %s])"), *Struct->GetName(), *PropertyIterator->GetNameCPP(), bInherited, *GetNameSafe(Parent));
 
 			auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
 			auto Member = MemberList->AppendChild(TEXT("field"));
@@ -308,6 +327,7 @@ public:
 			FString ExtendedTypeString;
 			FString TypeString = PropertyIterator->GetCPPType(&ExtendedTypeString);
 			Member->AppendChildWithValueEscaped("type", TypeString + ExtendedTypeString);
+			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 
 			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
 			{
@@ -324,8 +344,7 @@ public:
 			const bool bHasComment = GenerateDoxygenNode(*PropertyIterator, Member);
 
 			// Avoid any property that is part of the superclass and then "redefined" in this Class
-			const bool bIsInSuper = PropertyIterator->IsInContainer(Struct->GetSuperStruct());
-			if (bIsInSuper == false && bHasComment == false)
+			if (bInherited == false && bHasComment == false)
 			{
 				const bool IsPublic = PropertyIterator->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic);
 				const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
@@ -754,9 +773,8 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		{
 			NodeDocFile->AppendChildWithValueEscaped("funcname", Func->GetAuthoredName());
 			NodeDocFile->AppendChildWithValueEscaped("rawcomment", Func->GetMetaData(TEXT("Comment")));
-			NodeDocFile->AppendChildWithValue("static", Func->HasAnyFunctionFlags(FUNC_Static) ? "true" : "false");
-			NodeDocFile->AppendChildWithValue("autocast",
-											  Func->HasMetaData(TEXT("BlueprintAutocast")) ? "true" : "false");
+			NodeDocFile->AppendChildWithValue("static", FDocGenHelper::GetBoolString(Func->HasAnyFunctionFlags(FUNC_Static)));
+			NodeDocFile->AppendChildWithValue("autocast", FDocGenHelper::GetBoolString(Func->HasMetaData(TEXT("BlueprintAutocast"))));
 			TArray<FStringFormatArg> Args;
 
 			if (FProperty* RetProp = Func->GetReturnProperty())
