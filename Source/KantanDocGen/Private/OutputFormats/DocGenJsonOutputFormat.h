@@ -12,8 +12,8 @@ class DocGenJsonSerializer : public DocTreeNode::IDocTreeSerializer
 	TSharedPtr<class FJsonValue> TopLevelObject;
 	TSharedPtr<FJsonValue>& TargetObject;
 
-	virtual FString EscapeString(const FString& InString) override;
-	virtual FString GetFileExtension() override;
+	virtual FString EscapeString(const FString& InString) const override;
+	virtual FString GetFileExtension() const override;
 	virtual void SerializeObject(const DocTreeNode::Object& Obj) override;
 
 	TSharedPtr<class FJsonValueArray> SerializeArray(const TArray<TSharedPtr<DocTreeNode>> ArrayElements);

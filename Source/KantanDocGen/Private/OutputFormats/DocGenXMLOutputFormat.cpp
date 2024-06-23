@@ -2,14 +2,14 @@
 #include "OutputFormats/DocGenXMLOutputProcessor.h"
 #include "XmlFile.h"
  
-FString DocGenXMLSerializer::EscapeString(const FString& InString)
+FString DocGenXMLSerializer::EscapeString(const FString& InString) const
 {
 	return TEXT("<![CDATA[") + InString + TEXT("]]>");
 }
 
-FString DocGenXMLSerializer::GetFileExtension()
+FString DocGenXMLSerializer::GetFileExtension() const
 {
-	return ".xml";
+	return TEXT(".xml");
 }
 
 void DocGenXMLSerializer::SerializeObject(const DocTreeNode::Object& Obj)

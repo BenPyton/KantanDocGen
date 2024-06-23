@@ -463,7 +463,7 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	auto NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet {}, FVector2D(0, 0));
 
 	// Currently Blueprint nodes only
-	auto K2NodeInst = Cast<UK2Node>(NodeInst);
+	const auto K2NodeInst = Cast< UK2Node >(NodeInst);
 
 	if (K2NodeInst == nullptr)
 	{
@@ -472,7 +472,7 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 		return nullptr;
 	}
 
-	auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
+	const auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
 
 	// Create the class doc tree if necessary.
 	GetClassDocTree(AssociatedClass, /*bCreate = */true);

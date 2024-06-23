@@ -52,11 +52,11 @@ public:
 		return *StringPtr;
 	}
 
-	TSharedPtr<DocTreeNode> FindChildByName(const FString& ChildName)
+	TSharedPtr<DocTreeNode> FindChildByName(const FString& ChildName) const
 	{
-		Object* ObjPtr = Value.TryGet<Object>();
+		const Object* ObjPtr = Value.TryGet<Object>();
 		check(ObjPtr);
-		TSharedPtr<DocTreeNode>* FoundChild = ObjPtr->Find(ChildName);
+		const TSharedPtr<DocTreeNode>* FoundChild = ObjPtr->Find(ChildName);
 		if (FoundChild != nullptr)
 		{
 			return *FoundChild;
@@ -96,8 +96,8 @@ public:
 
 	struct IDocTreeSerializer
 	{
-		virtual FString EscapeString(const FString& InString) = 0;
-		virtual FString GetFileExtension() = 0;
+		virtual FString EscapeString(const FString& InString) const = 0;
+		virtual FString GetFileExtension() const = 0;
 		virtual void SerializeObject(const Object& Object) = 0;
 		virtual void SerializeString(const FString& InString) = 0;
 		virtual void SerializeNull() = 0;
@@ -105,7 +105,7 @@ public:
 		virtual ~IDocTreeSerializer() {};
 	};
 
-	void SerializeWith(TSharedPtr<IDocTreeSerializer> Serializer)
+	void SerializeWith(TSharedPtr<IDocTreeSerializer> Serializer) const
 	{
 		switch (CurrentDataType)
 		{
