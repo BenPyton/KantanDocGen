@@ -12,23 +12,23 @@ public class KantanDocGen : ModuleRules
 	public KantanDocGen(ReadOnlyTargetRules Target): base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		bEnforceIWYU = true;
-		bUseUnity = false;
+
+		// Uncomment this line to check there is no missing includes
+		//bUseUnity = false;
 
 		PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Private"));
 		PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "../../ThirdParty/variant/include"));
 		PublicDependencyModuleNames.AddRange(
-            new string[] {
-	            "AnimGraph",
-                "Core",
-                "CoreUObject",
-                "Engine",
-                "InputCore",
-                "Slate",
+			new string[] {
+				"Core",
+				"CoreUObject",
+				"Engine",
+				"InputCore",
+				"Slate",
 				"SlateCore",
-                "UnrealEd",
-                "PropertyEditor",
-                "EditorStyle",
+				"UnrealEd",
+				"PropertyEditor",
+				"EditorStyle",
 				"BlueprintGraph",
 				"GraphEditor",
 				"MainFrame",
@@ -38,12 +38,13 @@ public class KantanDocGen : ModuleRules
 				"JsonUtilities",
 				"UMG",
 				"Projects",
-                "ImageWriteQueue",
+				"ImageWriteQueue",
 				"RenderCore",
 				"SlateRHIRenderer",
 				"Settings",
+				"AnimGraph",
 				"AssetRegistry"
-            }
-        );
+			}
+		);
 	}
 }
