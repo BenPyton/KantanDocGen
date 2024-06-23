@@ -14,8 +14,22 @@
 	#include "AssetRegistry/ARFilter.h"
 #endif
 #include "Engine/Blueprint.h"
+#include "Engine/UserDefinedEnum.h"
+#include "Engine/UserDefinedStruct.h"
 #include "Animation/AnimBlueprint.h"
 
+
+#if UE_VERSION_OLDER_THAN(5, 3, 0)
+#define GET_ASSET_PATH(ASSET) ASSET.ObjectPath.ToString()
+#define GET_CLASS_PATH(TYPE) TYPE::StaticClass()->GetFName()
+#define AddClass(TYPE) ClassNames.Add(GET_CLASS_PATH(TYPE))
+#define ExcludeClass(TYPE) RecursiveClassesExclusionSet.Add(GET_CLASS_PATH(TYPE))
+#else
+#define GET_ASSET_PATH(ASSET) ASSET.GetSoftObjectPath().ToString()
+#define GET_CLASS_PATH(TYPE) TYPE::StaticClass()->GetClassPathName()
+#define AddClass(TYPE) ClassPaths.Add(GET_CLASS_PATH(TYPE))
+#define ExcludeClass(TYPE) RecursiveClassPathsExclusionSet.Add(GET_CLASS_PATH(TYPE))
+#endif
 
 FContentPathEnumerator::FContentPathEnumerator(
 	FName const& InPath
@@ -33,18 +47,12 @@ void FContentPathEnumerator::Prepass(FName const& Path)
 
 	FARFilter Filter;
 	Filter.bRecursiveClasses = true;
-#if UE_VERSION_OLDER_THAN(5, 3, 0)
-	Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
-	#else
-	Filter.ClassPaths.Add(UBlueprint::StaticClass()->GetClassPathName());
-	#endif
+	Filter.AddClass(UBlueprint);
+	Filter.AddClass(UUserDefinedEnum);
+	Filter.AddClass(UUserDefinedStruct);
 
-	#if UE_VERSION_OLDER_THAN(5, 3, 0)
 	// @TODO: Not sure about this, but for some reason was generating docs for 'AnimInstance' itself.
-	Filter.RecursiveClassesExclusionSet.Add(UAnimBlueprint::StaticClass()->GetFName());
-	#else
-	Filter.RecursiveClassPathsExclusionSet.Add(UAnimBlueprint::StaticClass()->GetClassPathName());
-	#endif
+	Filter.ExcludeClass(UAnimBlueprint);
 
 	AssetRegistry.GetAssetsByPath(Path, AssetList, true);
 	AssetRegistry.RunAssetsThroughFilter(AssetList, Filter);
@@ -58,15 +66,16 @@ UObject* FContentPathEnumerator::GetNext()
 	{
 		auto const& AssetData = AssetList[CurIndex];
 		++CurIndex;
+		UE_LOG(LogKantanDocGen, Log, TEXT("[CONTENT] Enumerating object at '%s'"), *AssetData.GetSoftObjectPath().ToString());
 
-		if(auto Blueprint = Cast< UBlueprint >(AssetData.GetAsset()))
+		if (nullptr != (Result = Cast<UBlueprint>(AssetData.GetAsset())));
+		else if (nullptr != (Result = Cast<UUserDefinedStruct>(AssetData.GetAsset())));
+		else if (nullptr != (Result = Cast<UUserDefinedEnum>(AssetData.GetAsset())));
+		else Result = nullptr;
+
+		if(Result)
 		{
-#if UE_VERSION_OLDER_THAN(5, 3, 0)
-			UE_LOG(LogKantanDocGen, Log, TEXT("Enumerating object '%s' at '%s'"), *Blueprint->GetName(), *AssetData.ObjectPath.ToString());
-#else
-			UE_LOG(LogKantanDocGen, Log, TEXT("Enumerating object '%s' at '%s'"), *Blueprint->GetName(), *AssetData.GetSoftObjectPath().ToString());
-			#endif
-			Result = Blueprint;
+			UE_LOG(LogKantanDocGen, Log, TEXT("[CONTENT] Enumerating object '%s' at '%s'"), *Result->GetName(), *GET_ASSET_PATH(AssetData));
 			break;
 		}
 	}

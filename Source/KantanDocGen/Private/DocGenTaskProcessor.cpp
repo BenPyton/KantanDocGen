@@ -114,6 +114,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 			// Ignore if already processed
 			if (Current->Processed.Contains(Obj))
 			{
+				UE_LOG(LogKantanDocGen, Display, TEXT("Object already processed."));
 				continue;
 			}
 			Current->SourceObject = Obj;
@@ -124,6 +125,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 			{
 				if (ActionList->Num() == 0)
 				{
+					UE_LOG(LogKantanDocGen, Display, TEXT("No BP Action."));
 					continue;
 				}
 
@@ -163,6 +165,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 
 				if (K2_NodeInst == nullptr)
 				{
+					UE_LOG(LogKantanDocGen, Display, TEXT("No node instance for spawner: %s."), *GetNameSafe(Spawner.Get()));
 					continue;
 				}
 
@@ -223,6 +226,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 
 	for (auto const& Name : Current->Task->Settings.ExcludedClasses)
 	{
+		UE_LOG(LogKantanDocGen, Display, TEXT("Class excluded: %s"), Name);
 		Current->Excluded.Add(Name);
 	}
 
@@ -234,8 +238,10 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 			   }).Get()) // Game thread: Enumerate next Obj, get spawner list for Obj, store as
 						 // array of weak ptrs.
 		{
+			UE_LOG(LogKantanDocGen, Display, TEXT("Obj enumerated: %s"), *GetNameSafe(Current->SourceObject.Get()));
 			if (bTerminationRequest)
 			{
+				UE_LOG(LogKantanDocGen, Display, TEXT("Terminate."))
 				return;
 			}
 
@@ -248,6 +254,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 				// NodeInst should hopefully not reference anything except stuff we control (ie graph object), and
 				// it's rooted so should be safe to deal with here
 
+				UE_LOG(LogKantanDocGen, Display, TEXT("Node enumerated: %s"), *GetNameSafe(NodeInst));
 				// Generate image
 				if (!Current->DocGen->GenerateNodeImage(NodeInst, NodeState))
 				{

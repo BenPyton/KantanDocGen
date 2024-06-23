@@ -491,6 +491,13 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 {
 	if (!IsSpawnerDocumentable(Spawner, SourceObject->IsA<UBlueprint>()))
 	{
+		UE_LOG(
+			LogKantanDocGen,
+			Warning, TEXT("Not documentable %s with node class %s. SourceObject: %s"),
+			*Spawner->GetClass()->GetName(),
+			Spawner->NodeClass ? *Spawner->NodeClass->GetName() : TEXT("None"),
+			*SourceObject->GetName()
+		);
 		return nullptr;
 	}
 
@@ -508,6 +515,10 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	}
 
 	const auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
+	
+	// TODO: Should UserDefinedStruct and UserDefinedEnum pass here?
+	if (!AssociatedClass) 
+		return nullptr;
 
 	// Create the class doc tree if necessary.
 	GetClassDocTree(AssociatedClass, /*bCreate = */true);
@@ -762,10 +773,10 @@ bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree,
 
 bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState& State)
 {
-	if (auto EventNode = Cast<UK2Node_Event>(Node))
-	{
-		return true; // Skip events
-	}
+	//if (auto EventNode = Cast<UK2Node_Event>(Node))
+	//{
+	//	return true; // Skip events
+	//}
 	SCOPE_SECONDS_COUNTER(GenerateNodeDocsTime);
 
 	auto NodeDocsPath = State.ClassDocsPath / TEXT("nodes");
@@ -1015,6 +1026,7 @@ void FNodeDocsGenerator::AdjustNodeForSnapshot(UEdGraphNode* Node)
 #include "BlueprintVariableNodeSpawner.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_DynamicCast.h"
+#include "Engine/UserDefinedStruct.h"
 
 /*
 This takes a graph node object and attempts to map it to the class which the node conceptually belong to.
