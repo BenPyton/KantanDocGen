@@ -442,11 +442,10 @@ public:
 	{
 		for (const auto& Entry : Map)
 		{
-			FString DocId = GetDocId(Entry.Key);
-			FString DocDisplayName = GetDisplayName(Entry.Key).Replace(TEXT(" "), TEXT("-"));
+			auto DocId = GetDocId(Entry.Key);
 			const auto DocPath = OutputDirectory / DocId;
 			FDocGenHelper::CreateImgDir(DocPath);
-			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocDisplayName, OutputFormats);
+			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocId, OutputFormats);
 		}
 	}
 };
@@ -775,8 +774,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	NodeDocFile->AppendChildWithValueEscaped("docs_name", DocsTitle);
 	NodeDocFile->AppendChildWithValueEscaped("class_id", State.ClassDocTree->FindChildByName("id")->GetValue());
 	NodeDocFile->AppendChildWithValueEscaped("class_name", State.ClassDocTree->FindChildByName("display_name")->GetValue());
-	FString NodeShortTitle = FDocGenHelper::GetNodeShortTitle(Node);
-	NodeDocFile->AppendChildWithValueEscaped("shorttitle", NodeShortTitle);
+	NodeDocFile->AppendChildWithValueEscaped("shorttitle", FDocGenHelper::GetNodeShortTitle(Node));
 	FString NodeFullTitle = FDocGenHelper::GetNodeFullTitle(Node);
 	NodeDocFile->AppendChildWithValueEscaped("fulltitle", NodeFullTitle);
 	NodeDocFile->AppendChildWithValueEscaped("description", FDocGenHelper::GetNodeDescription(Node));
@@ -859,7 +857,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 	}
 
-	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, NodeShortTitle.Replace(TEXT(" "), TEXT("-")), OutputFormats);
+	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, FDocGenHelper::GetDocId(Node), OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
 	{
