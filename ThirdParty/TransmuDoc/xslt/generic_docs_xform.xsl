@@ -5,7 +5,7 @@
 		encoding="utf-8"
 		omit-xml-declaration="yes"
 		indent="no"/>
-
+	
 	<!-- Include first the default root template, it will have the least precedence. -->
 	<xsl:import href="no_xform.xsl"/>
 	
@@ -13,7 +13,8 @@
 	<xsl:import href="index_xform.xsl"/>
 	<xsl:import href="class_docs_xform.xsl"/>
 	<xsl:import href="node_docs_xform.xsl"/>
-
+	<xsl:import href="docusaurus.xsl"/>
+	
 	<!-- Choose the correct doc xsl based on the doctype -->
 	<xsl:template match="/">
 		<xsl:apply-templates/>

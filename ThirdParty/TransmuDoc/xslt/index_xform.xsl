@@ -5,10 +5,10 @@
 		encoding="utf-8"
 		omit-xml-declaration="yes"
 		indent="no"/>
-
+	
 	<!-- Include some common templates -->
 	<xsl:import href="common.xsl"/>
-
+	
 	<!-- Root template -->
 	<xsl:template match="/">
 		<xsl:apply-templates select="root"/>
@@ -26,12 +26,16 @@
 	<xsl:template name="index_doc">
 		<xsl:call-template name="notification"/>
 		
+		<xsl:call-template name="frontmatter">
+			<xsl:with-param name="position" select="1"/>
+		</xsl:call-template>
+		
 		<xsl:text># </xsl:text><xsl:value-of select="display_name"/><xsl:text> API&#xA;</xsl:text>
 		<xsl:apply-templates select="classes"/>
 		<xsl:apply-templates select="structs"/>
 		<xsl:apply-templates select="enums"/>
 	</xsl:template>
-
+	
 	<!-- Template for the class table -->
 	<xsl:template match="classes">
 		<xsl:text>&#xA;## Classes&#xA;&#xA;</xsl:text>
@@ -46,21 +50,21 @@
 	<!-- Template for a class row -->
 	<xsl:template match="class">
 		<xsl:text>| </xsl:text>
-			<xsl:apply-templates select="type"/>
+		<xsl:apply-templates select="type"/>
 		<xsl:text> | </xsl:text>
-			<xsl:call-template name="link">
-				<xsl:with-param name="name" select="display_name"/>
-				<xsl:with-param name="href">
-					<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="translate(display_name, ' ', '-')"/><xsl:text>.md</xsl:text>
-				</xsl:with-param>
-			</xsl:call-template>
+		<xsl:call-template name="link">
+			<xsl:with-param name="name" select="display_name"/>
+			<xsl:with-param name="href">
+				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+			</xsl:with-param>
+		</xsl:call-template>
 		<xsl:text> | </xsl:text>
-			<xsl:apply-templates select="group"/>
+		<xsl:apply-templates select="group"/>
 		<xsl:text> | </xsl:text>
-			<xsl:apply-templates select="description"/>
+		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
 	</xsl:template>
-
+	
 	<!-- Template for the struct table -->
 	<xsl:template match="structs">
 		<xsl:text>&#xA;## Structs&#xA;&#xA;</xsl:text>
@@ -70,23 +74,23 @@
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
 	</xsl:template>
-
+	
 	<!-- Template for a struct row -->
 	<xsl:template match="struct">
 		<xsl:text>| </xsl:text>
-			<xsl:apply-templates select="type"/>
+		<xsl:apply-templates select="type"/>
 		<xsl:text> | </xsl:text>
-			<xsl:call-template name="link">
-				<xsl:with-param name="name" select="display_name"/>
-				<xsl:with-param name="href">
-					<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="translate(display_name, ' ', '-')"/><xsl:text>.md</xsl:text>
-				</xsl:with-param>
-			</xsl:call-template>
+		<xsl:call-template name="link">
+			<xsl:with-param name="name" select="display_name"/>
+			<xsl:with-param name="href">
+				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+			</xsl:with-param>
+		</xsl:call-template>
 		<xsl:text> | </xsl:text>
-			<xsl:apply-templates select="description"/>
+		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
 	</xsl:template>
-
+	
 	<!-- Template for the enum table -->
 	<xsl:template match="enums">
 		<xsl:text>&#xA;## Enums&#xA;&#xA;</xsl:text>
@@ -96,21 +100,21 @@
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
 	</xsl:template>
-
+	
 	<!-- Template for an enum row -->
 	<xsl:template match="enum">
 		<xsl:text>| </xsl:text>
-			<xsl:apply-templates select="type"/>
+		<xsl:apply-templates select="type"/>
 		<xsl:text> | </xsl:text>
-			<xsl:call-template name="link">
-				<xsl:with-param name="name" select="display_name"/>
-				<xsl:with-param name="href">
-					<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="translate(display_name, ' ', '-')"/><xsl:text>.md</xsl:text>
-				</xsl:with-param>
-			</xsl:call-template>
+		<xsl:call-template name="link">
+			<xsl:with-param name="name" select="display_name"/>
+			<xsl:with-param name="href">
+				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+			</xsl:with-param>
+		</xsl:call-template>
 		<xsl:text> | </xsl:text>
-			<xsl:apply-templates select="description"/>
+		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
 	</xsl:template>
-
+	
 </xsl:stylesheet>

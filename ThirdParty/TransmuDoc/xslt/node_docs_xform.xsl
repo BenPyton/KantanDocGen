@@ -5,10 +5,10 @@
 		encoding="utf-8"
 		omit-xml-declaration="yes"
 		indent="no"/>
-
+	
 	<!-- Include some common templates -->
 	<xsl:import href="common.xsl"/>
-
+	
 	<!-- Root template -->
 	<xsl:template match="/">
 		<xsl:apply-templates select="root"/>
@@ -21,40 +21,45 @@
 		</xsl:apply-templates>
 		<xsl:call-template name="node_doc"/>
 	</xsl:template>
-
+	
 	<!-- Template to create a node file -->
 	<xsl:template name="node_doc">
 		<xsl:call-template name="notification"/>
 		
+		<xsl:call-template name="frontmatter">
+			<xsl:with-param name="slug">
+				<xsl:text>/api/</xsl:text>
+				<xsl:value-of select="class_id"/>
+				<xsl:text>/</xsl:text>
+				<xsl:value-of select="funcname"/>
+			</xsl:with-param>
+		</xsl:call-template>
+		
 		<!-- Breadcrumb -->
 		<xsl:call-template name="breadcrumb">
 			<xsl:with-param name="items" as="element()*">
-				<item>
-					<xsl:call-template name="link">
-						<xsl:with-param name="name" select="docs_name"/>
-						<xsl:with-param name="href">
-							<xsl:text>../../index.md</xsl:text>
-						</xsl:with-param>
-					</xsl:call-template>
+				<item href="../../index.md">
+					<xsl:value-of select="docs_name"/>
 				</item>
 				<item>
-					<xsl:call-template name="link">
-						<xsl:with-param name="name" select="class_name"/>
-						<xsl:with-param name="href">
-							<xsl:text>../</xsl:text><xsl:value-of select="translate(class_name, ' ', '-')"/><xsl:text>.md</xsl:text>
-						</xsl:with-param>
-					</xsl:call-template>
+					<xsl:attribute name="href"><xsl:text>../</xsl:text><xsl:value-of select="class_id"/><xsl:text>.md</xsl:text></xsl:attribute>
+					<xsl:value-of select="class_name"/>
 				</item>
 				<item>
 					<xsl:value-of select="shorttitle"/>
 				</item>
 			</xsl:with-param>
 		</xsl:call-template>
-
+		
+		<!-- Title of the wiki page -->
+		<xsl:call-template name="title">
+			<xsl:with-param name="title" select="shorttitle"/>
+		</xsl:call-template>
+		
 		<xsl:text>&#xA;Node&#xA;&#xA;</xsl:text>
-		<xsl:text>![img](</xsl:text>
-			<xsl:value-of select="imgpath"/>
-		<xsl:text>)</xsl:text>
+		<xsl:call-template name="image">
+			<xsl:with-param name="href" select="imgpath"/>
+		</xsl:call-template>
 		<xsl:text>&#xA;&#xA;</xsl:text>
 		<xsl:apply-templates select="rawsignature"/>
 		<xsl:text>&#xA;</xsl:text>
@@ -62,7 +67,7 @@
 		<xsl:apply-templates select="inputs"/>
 		<xsl:apply-templates select="outputs"/>
 	</xsl:template>
-
+	
 	<!-- Template for the input table -->
 	<xsl:template match="inputs">
 		<xsl:text>&#xA;## Inputs&#xA;&#xA;</xsl:text>
@@ -70,7 +75,7 @@
 		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="param"/>
 	</xsl:template>
-
+	
 	<!-- Template for the output table -->
 	<xsl:template match="outputs">
 		<xsl:text>&#xA;## Outputs&#xA;&#xA;</xsl:text>
@@ -78,15 +83,15 @@
 		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="param"/>
 	</xsl:template>
-
+	
 	<!-- Template for a param row -->
 	<xsl:template match="param">
 		<xsl:text>| </xsl:text>
-			<xsl:value-of select="name"/>
+		<xsl:value-of select="name"/>
 		<xsl:text> | </xsl:text>
-			<xsl:value-of select="type"/>
+		<xsl:value-of select="type"/>
 		<xsl:text> | </xsl:text>
-			<xsl:apply-templates select="description"/>
+		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
 	</xsl:template>
 	
@@ -96,7 +101,7 @@
 		<xsl:value-of select="."/>
 		<xsl:text>&#xA;```</xsl:text>
 	</xsl:template>
-
+	
 	<!-- Unwanted elements (can use "a | b | c") -->
 	<xsl:template match="fulltitle | docs_name | class_id | class_name"/>
 </xsl:stylesheet>
