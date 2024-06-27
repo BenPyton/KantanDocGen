@@ -208,26 +208,26 @@ public:
 		return GetDisplayName(Ptr.Get());
 	}
 
-	static FString GetDescription(const UField* Field)
+	static FString GetDescription(const UField* Field, bool bShortDescription = false)
 	{
 		check(Field);
 		if (const UClass* Class = Cast<UClass>(Field))
 		{
-			if (Class->HasAllClassFlags(CLASS_Interface))
+			if (!bShortDescription && Class->HasAllClassFlags(CLASS_Interface))
 				return "*UInterface cannot be documented*";
 		}
 
-		FString Description = Field->GetToolTipText().ToString();
+		FString Description = Field->GetToolTipText(bShortDescription).ToString();
 		if (Description == GetObjectRawDisplayName(Field))
 			return FString();
 
 		return Description;
 	}
 
-	static FString GetDescription(const FField* Field)
+	static FString GetDescription(const FField* Field, bool bShortDescription = false)
 	{
 		check(Field);
-		FString Description = Field->GetToolTipText().ToString();
+		FString Description = Field->GetToolTipText(bShortDescription).ToString();
 		if (Description == GetRawDisplayName(Field->GetName()))
 			return FString();
 
@@ -351,9 +351,7 @@ public:
 				Member->AppendChildWithValueEscaped("deprecated", DetailedMessage.ToString());
 			}
 
-			FString PropDesc = PropertyIterator->GetToolTipText().ToString();
-			if (PropDesc != GetRawDisplayName(PropertyIterator->GetName()))
-				Member->AppendChildWithValueEscaped("description", PropDesc);
+			Member->AppendChildWithValueEscaped("description", FDocGenHelper::GetDescription(*PropertyIterator));
 
 			// Generate the detailed doxygen tags from the comment.
 			const bool bHasComment = GenerateDoxygenNode(*PropertyIterator, Member);
@@ -720,9 +718,9 @@ bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree
 	auto DocTreeClass = DocTreeClassesElement->AppendChild("class");
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("group"), FDocGenHelper::GetClassGroup(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class, /*bShortDescription =*/true));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("group"), FDocGenHelper::GetClassGroup(Class));
 	return true;
 }
 
@@ -732,7 +730,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTre
 	auto DocTreeStruct = DocTreeStructsElement->AppendChild("struct");
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
+	DocTreeStruct->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct, /*bShortDescription =*/true));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Struct));
 	return true;
 }
@@ -743,7 +741,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree,
 	auto DocTreeEnum = DocTreeEnumsElement->AppendChild("enum");
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
+	DocTreeEnum->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum, /*bShortDescription =*/true));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Enum));
 	return true;
 }
