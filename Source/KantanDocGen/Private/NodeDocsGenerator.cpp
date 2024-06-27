@@ -137,6 +137,16 @@ private:
 		return true;
 	}
 
+	static bool GetBoolMetadata(const UField* Field, const FName& MetadataName)
+	{
+		if (const UStruct* Struct = Cast<UStruct>(Field))
+		{
+			return Struct->GetBoolMetaDataHierarchical(MetadataName);
+		}
+
+		return Field->GetBoolMetaData(MetadataName);
+	}
+
 public:
 
 	static void PrintWarning(const FString& Msg)
@@ -291,6 +301,16 @@ public:
 	{
 		check(Object);
 		return Object->IsNative() ? TEXT("C++") : TEXT("Blueprint");
+	}
+
+	static bool IsBlueprintable(const UField* Field)
+	{
+		return GetBoolMetadata(Field, FBlueprintMetadata::MD_IsBlueprintBase);
+	}
+
+	static bool IsBlueprintType(const UField* Field)
+	{
+		return GetBoolMetadata(Field, FBlueprintMetadata::MD_AllowableBlueprintVariableType);
 	}
 
 	// Get a child node of a DocTreeNode, creating it if necessary if bCreate is true.
@@ -684,6 +704,9 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
 	ClassDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Class));
 	ClassDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Class));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
+	ClassDoc->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
 	return ClassDoc;
 }
 
@@ -697,6 +720,7 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Str
 	StructDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Struct));
 	StructDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Struct));
+	StructDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Struct)));
 	return StructDoc;
 }
 
@@ -709,6 +733,7 @@ TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitEnumDocTree(UEnum* Enum)
 	EnumDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
 	EnumDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Enum));
+	EnumDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Enum)));
 	return EnumDoc;
 }
 
@@ -721,6 +746,9 @@ bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class, /*bShortDescription =*/true));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Class));
 	DocTreeClass->AppendChildWithValueEscaped(TEXT("group"), FDocGenHelper::GetClassGroup(Class));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
+	DocTreeClass->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
 	return true;
 }
 
@@ -732,6 +760,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTre
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct, /*bShortDescription =*/true));
 	DocTreeStruct->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Struct));
+	DocTreeStruct->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Struct)));
 	return true;
 }
 
@@ -743,6 +772,7 @@ bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree,
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum, /*bShortDescription =*/true));
 	DocTreeEnum->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Enum));
+	DocTreeEnum->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Enum)));
 	return true;
 }
 
