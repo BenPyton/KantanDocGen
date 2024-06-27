@@ -83,8 +83,8 @@
 	<!-- Template for the struct table -->
 	<xsl:template match="structs">
 		<xsl:text>&#xA;## Structs&#xA;&#xA;</xsl:text>
-		<xsl:text>| Type | Name | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
+		<xsl:text>| Type | Name | Exposed As | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | ---- | ---------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="struct">
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
@@ -105,6 +105,8 @@
 			</xsl:with-param>
 		</xsl:call-template>
 		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="blueprint_type"/>
+		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
 	</xsl:template>
@@ -112,8 +114,8 @@
 	<!-- Template for the enum table -->
 	<xsl:template match="enums">
 		<xsl:text>&#xA;## Enums&#xA;&#xA;</xsl:text>
-		<xsl:text>| Type | Name | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
+		<xsl:text>| Type | Name |Exposed As | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | ---- | --------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="enum">
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
@@ -134,6 +136,8 @@
 				<xsl:text>.md</xsl:text>
 			</xsl:with-param>
 		</xsl:call-template>
+		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="blueprint_type"/>
 		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
