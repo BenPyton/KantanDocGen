@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+<xsl:stylesheet version="2.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+	xmlns:my="http://benpyton.github.io/TransmuDoc"
+	>
+	
 	<xsl:output
 		method="text"
 		encoding="utf-8"
@@ -17,7 +21,7 @@
 	<!-- Template to match automatically based on doc_type -->
 	<xsl:template match="root[doctype='node']">
 		<xsl:apply-templates select="doctype">
-			<xsl:with-param name="expected">node</xsl:with-param>
+			<xsl:with-param name="expected" select="'node'"/>
 		</xsl:apply-templates>
 		<xsl:call-template name="node_doc"/>
 	</xsl:template>
@@ -38,11 +42,14 @@
 		<!-- Breadcrumb -->
 		<xsl:call-template name="breadcrumb">
 			<xsl:with-param name="items" as="element()*">
-				<item href="../../index.md">
+				<item href="../../../../index.md">
 					<xsl:value-of select="docs_name"/>
 				</item>
 				<item>
-					<xsl:attribute name="href"><xsl:text>../</xsl:text><xsl:value-of select="class_id"/><xsl:text>.md</xsl:text></xsl:attribute>
+					<xsl:attribute name="href">
+						<xsl:text>../../</xsl:text>
+						<xsl:value-of select="class_id"/><xsl:text>.md</xsl:text>
+					</xsl:attribute>
 					<xsl:value-of select="class_name"/>
 				</item>
 				<item>
@@ -56,14 +63,20 @@
 			<xsl:with-param name="title" select="shorttitle"/>
 		</xsl:call-template>
 		
+		<!-- Details -->
+		<xsl:text>&#xA;&#xA;**Category:** </xsl:text>
+		<xsl:apply-templates select="my:no_wrap(my:oneline(category))"/>
+		<xsl:text>&#xA;</xsl:text>
+		<xsl:apply-templates select="description"/>
+		
 		<xsl:text>&#xA;Node&#xA;&#xA;</xsl:text>
 		<xsl:call-template name="image">
 			<xsl:with-param name="href" select="imgpath"/>
 		</xsl:call-template>
 		<xsl:text>&#xA;&#xA;</xsl:text>
+		
 		<xsl:apply-templates select="rawsignature"/>
-		<xsl:text>&#xA;</xsl:text>
-		<xsl:apply-templates select="description"/>
+		
 		<xsl:apply-templates select="inputs"/>
 		<xsl:apply-templates select="outputs"/>
 	</xsl:template>

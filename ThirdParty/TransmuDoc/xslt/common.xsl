@@ -2,6 +2,7 @@
 <xsl:stylesheet version="2.0"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:my="http://benpyton.github.io/TransmuDoc"
 	>
 	
 	<!-- Notify file transformation -->
@@ -29,9 +30,10 @@
 		<xsl:text>&#xA;## </xsl:text>
 		<xsl:value-of select="if ($name) then $name else 'Properties'"/>
 		<xsl:text>&#xA;&#xA;</xsl:text>
-		<xsl:text>| Name | Type | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
+		<xsl:text>| Name | Type | Category | Accessors | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | ---- | -------- | --------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="property | field[inherited='false']">
+			<xsl:sort select="category"/>
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
 	</xsl:template>
@@ -39,9 +41,17 @@
 	<!-- Template for the property row -->
 	<xsl:template match="property|field">
 		<xsl:text>| </xsl:text>
-		<xsl:value-of select="display_name"/>
+		<xsl:apply-templates select="display_name"/>
 		<xsl:text> | </xsl:text>
-		<xsl:value-of select="replace(replace(type, '&lt;', '&amp;lt;'), '&gt;', '&amp;gt;')" disable-output-escaping="yes"/>
+		<xsl:value-of select="my:format(type)"/>
+		<xsl:text> | </xsl:text>
+		<xsl:value-of select="my:no_wrap(my:multiline(category))"/>
+		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="blueprint_access"/>
+		<xsl:if test="blueprint_access and editor_access">
+			<xsl:text>&lt;br/&gt;</xsl:text>
+		</xsl:if>
+		<xsl:apply-templates select="editor_access"/>
 		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
@@ -78,8 +88,12 @@
 	<!-- Template to create a front matter at start of a markdown file -->
 	<!-- Empty by default, should be overwritten by another import -->
 	<xsl:template name="frontmatter">
+		<xsl:param name="docid" as="xs:string?"/>
 		<xsl:param name="slug" as="xs:string?"/>
 		<xsl:param name="position" as="xs:integer?"/>
+		<xsl:param name="title" as="xs:integer?"/>
+		<xsl:param name="sidebar" as="xs:integer?"/>
+		<xsl:param name="description" as="xs:integer?"/>
 	</xsl:template>
 	
 	<!-- Template to create a title in markdown -->
@@ -113,7 +127,7 @@
 	
 	<!-- Template to format multiline description for markdown (mainly useful in tables) -->
 	<xsl:template match="description" name="formatted-description">
-		<xsl:value-of select="replace(.,'&#xA;', '&lt;br/&gt;')"/>
+		<xsl:value-of select="my:format(.)"/>
 	</xsl:template>
 	
 	<!-- Template for top-level description of a page -->
@@ -124,5 +138,63 @@
 			<xsl:text>&#xA;</xsl:text>
 		</xsl:if>
 	</xsl:template>
+	
+	<!-- Template for classes derivable in blueprint -->
+	<xsl:template match="blueprintable">
+		<xsl:if test=". = 'true'">
+			<xsl:text>Blueprint&amp;nbsp;Base&amp;nbsp;Class</xsl:text>
+		</xsl:if>
+	</xsl:template>
+	
+	<!-- Template for types usable as variable types in blueprint -->
+	<xsl:template match="blueprint_type">
+		<xsl:if test=". = 'true'">
+			<xsl:text>Variable&amp;nbsp;Type</xsl:text>
+		</xsl:if>
+	</xsl:template>
+	
+	<!-- Template for properties blueprint access -->
+	<xsl:template match="blueprint_access">
+		<xsl:value-of select="my:no_wrap(concat('Blueprint ', .))"/>
+	</xsl:template>
+	
+	<!-- Template for properties editor access -->
+	<xsl:template match="editor_access">
+		<xsl:value-of select="my:no_wrap(concat('Edit ', .))"/>
+	</xsl:template>
+	
+	<!-- Template for class/node/variable displayed name -->
+	<xsl:template match="display_name">
+		<xsl:value-of select="my:no_wrap(my:format(.))"/>
+	</xsl:template>
+	
+	<xsl:function name="my:no_wrap" as="xs:string">
+		<xsl:param name="input" as="xs:string?"/>
+		<xsl:value-of select="replace($input, ' ', '&amp;nbsp;')"/>
+	</xsl:function>
+	
+	<xsl:function name="my:format" as="xs:string">
+		<xsl:param name="input" as="xs:string?"/>
+		<xsl:value-of select="
+			replace(
+				replace(
+					replace($input
+						, '&lt;', '&amp;lt;'
+					)
+					, '&gt;', '&amp;gt;'
+				)
+				, '&#xA;', '&lt;br/&gt;'
+			)"/>
+	</xsl:function>
+	
+	<xsl:function name="my:oneline" as="xs:string">
+		<xsl:param name="input" as="xs:string?"/>
+		<xsl:value-of select="replace($input, '\|', ' &amp;#8594; ')"/>
+	</xsl:function>
+	
+	<xsl:function name="my:multiline" as="xs:string">
+		<xsl:param name="input" as="xs:string?"/>
+		<xsl:value-of select="replace($input, '\|', ' &lt;br/&gt;&#x2514; ')"/>
+	</xsl:function>
 	
 </xsl:stylesheet>

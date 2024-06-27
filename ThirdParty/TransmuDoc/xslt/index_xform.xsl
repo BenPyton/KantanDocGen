@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+<xsl:stylesheet version="2.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+	xmlns:my="http://benpyton.github.io/TransmuDoc"
+	>
+	
 	<xsl:output
 		method="text"
 		encoding="utf-8"
@@ -27,6 +31,8 @@
 		<xsl:call-template name="notification"/>
 		
 		<xsl:call-template name="frontmatter">
+			<xsl:with-param name="title" select="'API References'"/>
+			<xsl:with-param name="description" select="'Documentation for classes, enums, structs, nodes, etc.'"/>
 			<xsl:with-param name="position" select="1"/>
 		</xsl:call-template>
 		
@@ -39,8 +45,8 @@
 	<!-- Template for the class table -->
 	<xsl:template match="classes">
 		<xsl:text>&#xA;## Classes&#xA;&#xA;</xsl:text>
-		<xsl:text>| Type | Name | Group | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----- | ----------- |&#xA;</xsl:text>
+		<xsl:text>| Type | Name | Category | Exposed As | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | ---- | -------- | ---------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="class">
 			<xsl:sort select="type" order="descending"/>
 			<xsl:sort select="display_name"/>
@@ -55,11 +61,20 @@
 		<xsl:call-template name="link">
 			<xsl:with-param name="name" select="display_name"/>
 			<xsl:with-param name="href">
-				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+				<xsl:text>./Classes/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>/</xsl:text>
+				<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
 			</xsl:with-param>
 		</xsl:call-template>
 		<xsl:text> | </xsl:text>
-		<xsl:apply-templates select="group"/>
+		<xsl:apply-templates select="my:no_wrap(group)"/>
+		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="blueprintable"/>
+		<xsl:if test="blueprint_type = 'true' and blueprintable = 'true'">
+			<xsl:text>&lt;br/&gt;</xsl:text>
+		</xsl:if>
+		<xsl:apply-templates select="blueprint_type"/>
 		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
@@ -83,7 +98,10 @@
 		<xsl:call-template name="link">
 			<xsl:with-param name="name" select="display_name"/>
 			<xsl:with-param name="href">
-				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+				<xsl:text>./Structs/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>/</xsl:text>
+				<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
 			</xsl:with-param>
 		</xsl:call-template>
 		<xsl:text> | </xsl:text>
@@ -109,7 +127,11 @@
 		<xsl:call-template name="link">
 			<xsl:with-param name="name" select="display_name"/>
 			<xsl:with-param name="href">
-				<xsl:text>./</xsl:text><xsl:value-of select="id"/>/<xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+				<xsl:text>./Enums/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>.md</xsl:text>
 			</xsl:with-param>
 		</xsl:call-template>
 		<xsl:text> | </xsl:text>

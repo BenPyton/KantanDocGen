@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+<xsl:stylesheet version="2.0"
+	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+	xmlns:my="http://benpyton.github.io/TransmuDoc"
+	>
+	
 	<xsl:output
 		method="text"
 		encoding="utf-8"
@@ -36,7 +40,7 @@
 		<!-- Breadcrumb -->
 		<xsl:call-template name="breadcrumb">
 			<xsl:with-param name="items" as="element()*">
-				<item href="../index.md">
+				<item href="../../index.md">
 					<xsl:value-of select="docs_name"/>
 				</item>
 				<item>
@@ -58,6 +62,15 @@
 			<xsl:text>\&#xA;</xsl:text>
 		</xsl:if>
 		<xsl:apply-templates select="classTree"/>
+		
+		<xsl:if test="blueprint_type = 'true' or blueprintable = 'true'">
+			<xsl:text>\&#xA;**Exposed in blueprint as:** </xsl:text>
+			<xsl:apply-templates select="blueprintable"/>
+			<xsl:if test="blueprint_type = 'true' and blueprintable = 'true'">
+				<xsl:text> | </xsl:text>
+			</xsl:if>
+			<xsl:apply-templates select="blueprint_type"/>
+		</xsl:if>
 		
 		<xsl:text>&#xA;&#xA;</xsl:text>
 		<xsl:apply-templates select="description"/>
@@ -84,9 +97,10 @@
 	<!-- Template for the node table -->
 	<xsl:template match="nodes">
 		<xsl:text>&#xA;## Nodes&#xA;&#xA;</xsl:text>
-		<xsl:text>| Name | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ----------- |&#xA;</xsl:text>
+		<xsl:text>| Name | Category | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | -------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="node">
+			<xsl:sort select="category"/>
 			<xsl:sort select="shorttitle"/>
 		</xsl:apply-templates>
 	</xsl:template>
@@ -97,9 +111,15 @@
 		<xsl:call-template name="link">
 			<xsl:with-param name="name" select="shorttitle"/>
 			<xsl:with-param name="href">
-				<xsl:text>./nodes/</xsl:text><xsl:value-of select="id"/><xsl:text>.md</xsl:text>
+				<xsl:text>./Nodes/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>/</xsl:text>
+				<xsl:value-of select="id"/>
+				<xsl:text>.md</xsl:text>
 			</xsl:with-param>
 		</xsl:call-template>
+		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="my:no_wrap(my:multiline(category))"/>
 		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>

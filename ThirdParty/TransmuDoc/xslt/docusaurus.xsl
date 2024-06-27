@@ -8,14 +8,30 @@
 						============= Some templates overrides specific to Docusaurus ================
 	-->
 	<xsl:template name="frontmatter">
+		<xsl:param name="docid" as="xs:string?"/>
 		<xsl:param name="slug" as="xs:string?"/>
 		<xsl:param name="position" as="xs:integer?"/>
-		<xsl:text>---&#xA;</xsl:text>
+		<xsl:param name="title" as="xs:string?"/>
+		<xsl:param name="description" as="xs:string?"/>
+		<xsl:param name="sidebar" as="xs:string?"/>
+		<xsl:text>---</xsl:text>
+		<xsl:if test="$docid">
+			<xsl:text>&#xA;id: </xsl:text><xsl:value-of select="$docid"/>
+		</xsl:if>
 		<xsl:if test="$slug">
-			<xsl:text>slug: </xsl:text><xsl:value-of select="$slug"/>
+			<xsl:text>&#xA;slug: </xsl:text><xsl:value-of select="$slug"/>
+		</xsl:if>
+		<xsl:if test="$title">
+			<xsl:text>&#xA;title: </xsl:text><xsl:value-of select="$title"/>
+		</xsl:if>
+		<xsl:if test="$description">
+			<xsl:text>&#xA;description: </xsl:text><xsl:value-of select="$description"/>
+		</xsl:if>
+		<xsl:if test="$sidebar">
+			<xsl:text>&#xA;displayed_sidebar: </xsl:text><xsl:value-of select="$sidebar"/>
 		</xsl:if>
 		<xsl:if test="$position">
-			<xsl:text>sidebar_position: </xsl:text><xsl:value-of select="$position"/>
+			<xsl:text>&#xA;sidebar_position: </xsl:text><xsl:value-of select="$position"/>
 		</xsl:if>
 		<xsl:text>&#xA;---&#xA;&#xA;</xsl:text>
 	</xsl:template>
