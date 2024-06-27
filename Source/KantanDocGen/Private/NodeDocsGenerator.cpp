@@ -573,8 +573,10 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	// Create the class doc tree if necessary.
 	GetClassDocTree(AssociatedClass, /*bCreate = */true);
 
+	const FString ClassID = FDocGenHelper::GetDocId(AssociatedClass);
+
 	OutState = FNodeProcessingState();
-	OutState.ClassDocsPath = OutputDir / FDocGenHelper::GetDocId(AssociatedClass);
+	OutState.ClassDocsPath = OutputDir / TEXT("Classes") / ClassID;
 	OutState.ClassDocTree = ClassDocTreeMap.FindChecked(AssociatedClass);
 
 	return K2NodeInst;
@@ -631,8 +633,6 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 
 	AdjustNodeForSnapshot(Node);
 
-	FString NodeName = FDocGenHelper::GetDocId(Node);
-
 	FIntRect Rect;
 
 	TUniquePtr<TImagePixelData<FColor>> PixelData;
@@ -673,8 +673,10 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 		return false;
 	}
 
-	State.RelImageBasePath = TEXT("../img");
-	FString ImageBasePath = State.ClassDocsPath / TEXT("img"); // State.RelImageBasePath;
+	State.RelImageBasePath = TEXT("./img");
+
+	FString NodeName = FDocGenHelper::GetDocId(Node);
+	FString ImageBasePath = State.ClassDocsPath / TEXT("Nodes") / NodeName / TEXT("img");
 	FDocGenHelper::CreateImgDir(ImageBasePath);
 
 	FString ImgFilename = FString::Printf(TEXT("nd_img_%s.png"), *NodeName);
@@ -838,8 +840,6 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	}
 	SCOPE_SECONDS_COUNTER(GenerateNodeDocsTime);
 
-	auto NodeDocsPath = State.ClassDocsPath / TEXT("nodes");
-
 	TSharedPtr<DocTreeNode> NodeDocFile = MakeShared<DocTreeNode>();
 	NodeDocFile->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("node"));
 	NodeDocFile->AppendChildWithValueEscaped("docs_name", DocsTitle);
@@ -928,7 +928,9 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 	}
 
-	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, FDocGenHelper::GetDocId(Node), OutputFormats);
+	const FString NodeDocID = FDocGenHelper::GetDocId(Node);
+	const FString NodeDocsPath = State.ClassDocsPath / TEXT("Nodes") / NodeDocID;
+	FDocGenHelper::SerializeDocToFile(NodeDocFile, NodeDocsPath, NodeDocID, OutputFormats);
 
 	if (!UpdateClassDocWithNode(State.ClassDocTree, Node))
 	{
@@ -1052,19 +1054,19 @@ bool FNodeDocsGenerator::SaveIndexFile(FString const& OutDir)
 
 bool FNodeDocsGenerator::SaveClassDocFile(FString const& OutDir)
 {
-	FDocGenHelper::SerializeDocMap(ClassDocTreeMap, OutDir, OutputFormats);
+	FDocGenHelper::SerializeDocMap(ClassDocTreeMap, OutDir / TEXT("Classes"), OutputFormats);
 	return true;
 }
 
 bool FNodeDocsGenerator::SaveEnumDocFile(FString const& OutDir)
 {
-	FDocGenHelper::SerializeDocMap(EnumDocTreeMap, OutDir, OutputFormats);
+	FDocGenHelper::SerializeDocMap(EnumDocTreeMap, OutDir / TEXT("Enums"), OutputFormats);
 	return true;
 }
 
 bool FNodeDocsGenerator::SaveStructDocFile(FString const& OutDir)
 {
-	FDocGenHelper::SerializeDocMap(StructDocTreeMap, OutDir, OutputFormats);
+	FDocGenHelper::SerializeDocMap(StructDocTreeMap, OutDir / TEXT("Structs"), OutputFormats);
 	return true;
 }
 
