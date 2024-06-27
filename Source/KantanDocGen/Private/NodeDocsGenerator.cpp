@@ -297,6 +297,21 @@ public:
 		return FString();
 	}
 
+	static FString GetCategory(const UEdGraphNode* Node)
+	{
+		if (auto K2Node = Cast<UK2Node>(Node))
+		{
+			return K2Node->GetMenuCategory().ToString();
+		}
+
+		return FString();
+	}
+
+	static FString GetCategory(const FField* Field)
+	{
+		return Field->GetMetaDataText(TEXT("Category")).ToString();
+	}
+
 	static FString GetObjectNativeness(const UObject* Object)
 	{
 		check(Object);
@@ -363,6 +378,7 @@ public:
 			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
 			Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
 			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
+			Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
 
 			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
 			{
@@ -784,6 +800,7 @@ bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree,
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("shorttitle"), FDocGenHelper::GetNodeShortTitle(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetNodeDescription(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Node));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("category"), FDocGenHelper::GetCategory(Node));
 	return true;
 }
 
@@ -807,7 +824,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 	NodeDocFile->AppendChildWithValueEscaped("fulltitle", NodeFullTitle);
 	NodeDocFile->AppendChildWithValueEscaped("description", FDocGenHelper::GetNodeDescription(Node));
 	NodeDocFile->AppendChildWithValueEscaped("imgpath", State.RelImageBasePath / State.ImageFilename);
-	NodeDocFile->AppendChildWithValueEscaped("category", Node->GetMenuCategory().ToString());
+	NodeDocFile->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(Node));
 
 	if (auto FuncNode = Cast<UK2Node_CallFunction>(Node))
 	{
