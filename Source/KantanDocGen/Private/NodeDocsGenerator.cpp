@@ -507,7 +507,6 @@ public:
 		{
 			auto DocId = GetDocId(Entry.Key);
 			const auto DocPath = OutputDirectory / DocId;
-			FDocGenHelper::CreateImgDir(DocPath);
 			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocId, OutputFormats);
 		}
 	}
@@ -676,10 +675,8 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 
 	State.RelImageBasePath = TEXT("../img");
 	FString ImageBasePath = State.ClassDocsPath / TEXT("img"); // State.RelImageBasePath;
-	if (!IFileManager::Get().DirectoryExists(*ImageBasePath))
-	{
-		IFileManager::Get().MakeDirectory(*ImageBasePath, true);
-	}
+	FDocGenHelper::CreateImgDir(ImageBasePath);
+
 	FString ImgFilename = FString::Printf(TEXT("nd_img_%s.png"), *NodeName);
 	FString ScreenshotSaveName = ImageBasePath / ImgFilename;
 
