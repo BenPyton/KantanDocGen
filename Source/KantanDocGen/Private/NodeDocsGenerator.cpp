@@ -362,8 +362,11 @@ public:
 		bool bHasProperties = false;
 		for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
 		{
-			if (!(PropertyIterator->PropertyFlags & (CPF_BlueprintVisible | CPF_Edit)
-					|| (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))))
+			const bool bBlueprintVisible = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintVisible);
+			const bool bEditInEditor = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_Edit) && !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_EditConst);
+			const bool bDeprecated = PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated);
+
+			if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
 				continue;
 
 			bHasProperties = true;
@@ -379,6 +382,32 @@ public:
 			Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
 			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 			Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
+
+
+			if (bBlueprintVisible)
+			{
+				const bool bBlueprintReadOnly = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintReadOnly);
+				FString BlueprintAccess = TEXT("Read");
+				BlueprintAccess  += ((bBlueprintReadOnly) ? TEXT(" Only") : TEXT("/Write"));
+				Member->AppendChildWithValueEscaped("blueprint_access", BlueprintAccess);
+			}
+
+			if (bEditInEditor)
+			{
+				const bool bEditTemplate = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnTemplate);
+				const bool bEditInstance = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnInstance);
+
+				if (bEditTemplate || bEditInstance)
+				{
+					FString EditorAccess = TEXT("Anywhere");
+					if (!bEditTemplate)
+						EditorAccess = TEXT("Instance Only");
+					if (!bEditInstance)
+						EditorAccess = TEXT("Defaults Only");
+
+					Member->AppendChildWithValueEscaped("editor_access", EditorAccess);
+				}
+			}
 
 			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
 			{
