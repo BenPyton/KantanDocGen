@@ -94,6 +94,7 @@
 		<xsl:param name="title" as="xs:integer?"/>
 		<xsl:param name="sidebar" as="xs:integer?"/>
 		<xsl:param name="description" as="xs:integer?"/>
+		<xsl:param name="css-class" as="xs:string?"/>
 	</xsl:template>
 	
 	<!-- Template to create a title in markdown -->

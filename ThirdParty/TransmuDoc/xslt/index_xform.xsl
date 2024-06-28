@@ -33,7 +33,7 @@
 		<xsl:call-template name="frontmatter">
 			<xsl:with-param name="title" select="'API References'"/>
 			<xsl:with-param name="description" select="'Documentation for classes, enums, structs, nodes, etc.'"/>
-			<xsl:with-param name="position" select="1"/>
+			<xsl:with-param name="css-class" select="'hidden'"/>
 		</xsl:call-template>
 		
 		<xsl:text># </xsl:text><xsl:value-of select="display_name"/><xsl:text> API&#xA;</xsl:text>
