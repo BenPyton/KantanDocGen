@@ -67,7 +67,7 @@
 				</xsl:when>
 				<xsl:otherwise>
 					<xsl:call-template name="breadcrumb-item"/>
-					<xsl:text> &gt;&#xA;</xsl:text> 
+					<xsl:text> &#x23F5;&#xA;</xsl:text> <!-- Another candidate: &#x276F; -->
 				</xsl:otherwise>
 			</xsl:choose>
 		</xsl:for-each>

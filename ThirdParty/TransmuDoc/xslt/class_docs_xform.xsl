@@ -90,7 +90,7 @@
 	
 	<xsl:template match="classTree">
 		<xsl:text>**Hierarchy:** *</xsl:text>
-		<xsl:value-of select="."/>
+		<xsl:value-of select="replace(., '&gt;', '&amp;rarr;')"/>
 		<xsl:text>*</xsl:text>
 	</xsl:template>
 	
