@@ -10,7 +10,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 
-
 class UClass;
 class UBlueprint;
 class UEdGraph;
@@ -22,9 +21,7 @@ class FXmlFile;
 class FNodeDocsGenerator
 {
 public:
-	FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats)
-	:OutputFormats(OutputFormats)
-	{}
+	FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats);
 	~FNodeDocsGenerator();
 
 public:
@@ -58,25 +55,29 @@ public:
 
 protected:
 	void CleanUp();
-	bool SaveIndexFile(FString const& OutDir);
-	bool SaveClassDocFile(FString const& OutDir);
-	bool SaveEnumDocFile(FString const& OutDir);
-	bool SaveStructDocFile(FString const& OutDir);
 
-	TSharedPtr<DocTreeNode> InitIndexDocTree(FString const& IndexTitle);
-	TSharedPtr<DocTreeNode> InitClassDocTree(UClass* Class);
-	TSharedPtr<DocTreeNode> InitStructDocTree(UScriptStruct* Struct);
-	TSharedPtr<DocTreeNode> InitEnumDocTree(UEnum* Enum);
-	bool UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree, UClass* Class);
-	bool UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTree, UStruct* Struct);
-	bool UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree, UEnum* Enum);
+	// @TODO: Move it in a FDocFile for K2Node class?
 	bool UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node);
 	
 	static void AdjustNodeForSnapshot(UEdGraphNode* Node);
 	static UClass* MapToAssociatedClass(UK2Node* NodeInst, UObject* Source);
 	static bool IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, bool bIsBlueprint);
 
-	TSharedPtr<DocTreeNode> GetClassDocTree(UClass* Class, bool bCreate = false);
+	template <typename T UE_REQUIRES(TIsDerivedFrom<T, FDocFile>::IsDerived)>
+	TSharedPtr<T> CreateDocFile(TWeakPtr<FDocFile> Parent = nullptr)
+	{
+		TSharedPtr<T> DocFile = MakeShared<T>(Parent);
+		UClass* InstanceType = T::GetInstanceType();
+		DocFiles.Add(InstanceType, DocFile);
+		return DocFile;
+	}
+
+	template <typename T UE_REQUIRES(TIsDerivedFrom<T, FDocFile>::IsDerived)>
+	TSharedPtr<T> GetDocFile() const
+	{
+		UClass* InstanceType = T::GetInstanceType();
+		return StaticCastSharedPtr<T>(DocFiles[InstanceType]);
+	}
 
 protected:
 	TWeakObjectPtr< UBlueprint > DummyBP;
@@ -85,12 +86,13 @@ protected:
 
 	FString DocsTitle;
 	TSharedPtr<DocTreeNode> IndexTree;
-	TMap<TWeakObjectPtr<UClass>, TSharedPtr<DocTreeNode>> ClassDocTreeMap;
-	TMap<TWeakObjectPtr<UStruct>, TSharedPtr<DocTreeNode>> StructDocTreeMap;
-	TMap<TWeakObjectPtr<UEnum>, TSharedPtr<DocTreeNode>> EnumDocTreeMap;
 	TArray<UDocGenOutputFormatFactoryBase*> OutputFormats;
 	FString OutputDir;
 	bool SaveAllFormats(FString const& OutDir, TSharedPtr<DocTreeNode> Document){ return false; };
+
+private:
+	TMap<UClass*, TSharedPtr<FDocFile>> DocFiles;
+
 public:
 	//
 	double GenerateNodeImageTime = 0.0;

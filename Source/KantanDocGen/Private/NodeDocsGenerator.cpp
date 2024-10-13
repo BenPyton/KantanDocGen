@@ -34,483 +34,20 @@
 #include "Stats/StatsMisc.h"
 #include "TextureResource.h"
 #include "ThreadingHelpers.h"
+#include "DocGenHelper.h"
+#include "DocFiles/ClassDocFile.h"
+#include "DocFiles/StructDocFile.h"
+#include "DocFiles/EnumDocFile.h"
+#include "DocFiles/IndexDocFile.h"
 
-#define ENABLE_TEAMCITY_LOGS 1
-
-struct FDocGenHelper
+FNodeDocsGenerator::FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats)
+	: OutputFormats(OutputFormats)
 {
-private:
-	static void TrimTarget(FString& Str)
-	{
-		auto TargetIdx = Str.Find(TEXT("Target is "), ESearchCase::CaseSensitive);
-		if (TargetIdx != INDEX_NONE)
-		{
-			Str = Str.Left(TargetIdx).TrimEnd();
-		}
-	}
-
-	static FString GetRawDisplayName(const FString& Name)
-	{
-		return FName::NameToDisplayString(Name, false);
-	}
-
-	static FString GetObjectRawDisplayName(const UObject* Obj)
-	{
-		if (!Obj)
-			return TEXT("NULL");
-
-		if (auto FuncNode = Cast<UK2Node_CallFunction>(Obj))
-		{
-			auto Func = FuncNode->GetTargetFunction();
-			if (Func)
-			{
-				return GetRawDisplayName(Func->GetName());
-			}
-		}
-
-		return GetRawDisplayName(Obj->GetName());
-	}
-
-	static bool GenerateDoxygenNodeFromComment(const FString& Comment, TSharedPtr<DocTreeNode> ParentNode)
-	{
-		check(ParentNode.IsValid());
-		auto DoxygenTags = Detail::ParseDoxygenTagsForString(Comment);
-		if (DoxygenTags.Num())
-		{
-			auto DoxygenElement = ParentNode->AppendChild("doxygen");
-			for (auto CurrentTag : DoxygenTags)
-			{
-				for (auto CurrentValue : CurrentTag.Value)
-				{
-					DoxygenElement->AppendChildWithValueEscaped(CurrentTag.Key, CurrentValue);
-				}
-			}
-		}
-		return Comment.Len() > 0;
-	}
-
-	static bool ShouldDocumentPin(const UEdGraphPin* Pin)
-	{
-		return !Pin->bHidden;
-	}
-
-	// For K2 pins only!
-	static bool ExtractPinInformation(const UEdGraphPin* Pin, FString& OutName, FString& OutType, FString& OutDescription)
-	{
-		FString Tooltip;
-		Pin->GetOwningNode()->GetPinHoverText(*Pin, Tooltip);
-
-		if (!Tooltip.IsEmpty())
-		{
-			// @NOTE: This is based on the formatting in UEdGraphSchema_K2::ConstructBasicPinTooltip.
-			// If that is changed, this will fail!
-
-			auto TooltipPtr = *Tooltip;
-
-			// Parse name line
-			FParse::Line(&TooltipPtr, OutName);
-			// Parse type line
-			FParse::Line(&TooltipPtr, OutType);
-
-			// Currently there is an empty line here, but FParse::Line seems to gobble up empty lines as part of the
-			// previous call. Anyway, attempting here to deal with this generically in case that weird behaviour changes.
-			while (*TooltipPtr == TEXT('\n'))
-			{
-				FString Buf;
-				FParse::Line(&TooltipPtr, Buf);
-			}
-
-			// What remains is the description
-			OutDescription = TooltipPtr;
-		}
-
-		// @NOTE: Currently overwriting the name and type as suspect this is more robust to future engine changes.
-
-		OutName = Pin->GetDisplayName().ToString();
-		if (OutName.IsEmpty() && Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
-		{
-			OutName = Pin->Direction == EEdGraphPinDirection::EGPD_Input ? TEXT("In") : TEXT("Out");
-		}
-
-		OutType = UEdGraphSchema_K2::TypeToText(Pin->PinType).ToString();
-
-		return true;
-	}
-
-	static bool GetBoolMetadata(const UField* Field, const FName& MetadataName)
-	{
-		if (const UStruct* Struct = Cast<UStruct>(Field))
-		{
-			return Struct->GetBoolMetaDataHierarchical(MetadataName);
-		}
-
-		return Field->GetBoolMetaData(MetadataName);
-	}
-
-public:
-
-	static void PrintWarning(const FString& Msg)
-	{
-		UE_LOG(LogKantanDocGen, Warning, TEXT("%s"), *Msg);
-#if ENABLE_TEAMCITY_LOGS
-		FString LogStr = FString::Printf(TEXT("##teamcity[message status='WARNING' text='%s']\n"), *Msg);
-		FPlatformMisc::LocalPrint(*LogStr);
-#endif
-	}
-
-	static const FString& GetBoolString(bool Value)
-	{
-		static const FString True = TEXT("true");
-		static const FString False = TEXT("false");
-		return (Value) ? True : False;
-	}
-
-	static FString GetNodeShortTitle(const UEdGraphNode* Node)
-	{
-		return Node->GetNodeTitle(ENodeTitleType::ListView).ToString().TrimEnd();
-	}
-
-	static FString GetNodeFullTitle(const UEdGraphNode* Node)
-	{
-		FString NodeFullTitle = Node->GetNodeTitle(ENodeTitleType::FullTitle).ToString();
-		TrimTarget(NodeFullTitle);
-		return NodeFullTitle;
-	}
-
-	static FString GetNodeDescription(const UEdGraphNode* Node)
-	{
-		FString NodeDesc = Node->GetTooltipText().ToString();
-		TrimTarget(NodeDesc);
-
-		const FString DefaultDescription = GetObjectRawDisplayName(Node);
-		if (NodeDesc == DefaultDescription)
-			return FString();
-
-		return NodeDesc;
-	}
-
-	static FString GetTypeSignature(const FProperty* Property)
-	{
-		check(Property);
-		FString ExtendedParameters;
-		FString ParamConst = (Property->PropertyFlags & CPF_ConstParm) ? TEXT("const ") : TEXT("");
-		FString ParamRef = (Property->PropertyFlags & CPF_ReferenceParm) ? TEXT("&") : TEXT("");
-		FString ParamType = Property->GetCPPType(&ExtendedParameters);
-		return ParamConst + ParamType + ExtendedParameters + ParamRef;
-	}
-
-	// UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
-	static FString GetDisplayName(const UField* Field)
-	{
-		return Field ? Field->GetDisplayNameText().ToString() : FString("None");
-	}
-
-	// FField are FProperty (is there a way to merge with UField?)
-	static FString GetDisplayName(const FField* Field)
-	{
-		return Field ? Field->GetDisplayNameText().ToString() : FString("None");
-	}
-
-	// Forward GetDisplayName if called on a TWeakObjectPtr<>
-	template<typename T>
-	static FString GetDisplayName(const TWeakObjectPtr<T>& Ptr)
-	{
-		return GetDisplayName(Ptr.Get());
-	}
-
-	static FString GetDescription(const UField* Field, bool bShortDescription = false)
-	{
-		check(Field);
-		if (const UClass* Class = Cast<UClass>(Field))
-		{
-			if (!bShortDescription && Class->HasAllClassFlags(CLASS_Interface))
-				return "*UInterface cannot be documented*";
-		}
-
-		FString Description = Field->GetToolTipText(bShortDescription).ToString();
-		if (Description == GetObjectRawDisplayName(Field))
-			return FString();
-
-		return Description;
-	}
-
-	static FString GetDescription(const FField* Field, bool bShortDescription = false)
-	{
-		check(Field);
-		FString Description = Field->GetToolTipText(bShortDescription).ToString();
-		if (Description == GetRawDisplayName(Field->GetName()))
-			return FString();
-
-		return Description;
-	}
-
-	static FString GetSourcePath(const UField* Field)
-	{
-		check(Field);
-		static const FName MD_RelativePath("ModuleRelativePath");
-		FString Path = Field->GetMetaData(MD_RelativePath);
-		if (Path.IsEmpty())
-		{
-			Path = Field->GetPathName();
-			Path.RemoveFromEnd("." + Field->GetName());
-		}
-		return Path;
-	}
-
-	static FString GetTypeHierarchy(const UStruct* Struct)
-	{
-		check(Struct);
-		const UStruct* Parent = Struct->GetSuperStruct();
-		FString OutputStr = FDocGenHelper::GetDisplayName(Struct);
-		while (nullptr != Parent)
-		{
-			// TODO: Create a node list of classes, with a possible ClassDocId if they belong to the doc too.
-			// So we could create links in the generated doc to the related parent class pages.
-			OutputStr = FString::Printf(TEXT("%s > %s"), *FDocGenHelper::GetDisplayName(Parent), *OutputStr);
-			Parent = Parent->GetSuperStruct();
-		}
-		return OutputStr;
-	}
-
-	static FString GetClassGroup(const UClass* Class)
-	{
-		const bool bIsNative = Class->HasAnyClassFlags(CLASS_Native);
-		if (bIsNative)
-		{
-			TArray<FString> Groups;
-			Class->GetClassGroupNames(Groups);
-			if (Groups.Num() > 0)
-				return Groups[0];
-		}
-		else
-		{
-			UObject* DO = Class->GetDefaultObject();
-			UBlueprint* BP = Cast<UBlueprint>(DO);
-			if (nullptr != BP)
-			{
-				if (!BP->BlueprintCategory.IsEmpty())
-					return BP->BlueprintCategory;
-				else if (!BP->BlueprintNamespace.IsEmpty())
-					return BP->BlueprintNamespace;
-			}
-		}
-		return FString();
-	}
-
-	static FString GetCategory(const UEdGraphNode* Node)
-	{
-		if (auto K2Node = Cast<UK2Node>(Node))
-		{
-			return K2Node->GetMenuCategory().ToString();
-		}
-
-		return FString();
-	}
-
-	static FString GetCategory(const FField* Field)
-	{
-		return Field->GetMetaDataText(TEXT("Category")).ToString();
-	}
-
-	static FString GetObjectNativeness(const UObject* Object)
-	{
-		check(Object);
-		return Object->IsNative() ? TEXT("C++") : TEXT("Blueprint");
-	}
-
-	static bool IsBlueprintable(const UField* Field)
-	{
-		return GetBoolMetadata(Field, FBlueprintMetadata::MD_IsBlueprintBase);
-	}
-
-	static bool IsBlueprintType(const UField* Field)
-	{
-		return GetBoolMetadata(Field, FBlueprintMetadata::MD_AllowableBlueprintVariableType);
-	}
-
-	// Get a child node of a DocTreeNode, creating it if necessary if bCreate is true.
-	static TSharedPtr<DocTreeNode> GetChildNode(TSharedPtr<DocTreeNode> Parent, const FString& ChildName, bool bCreate = false)
-	{
-		check(Parent.IsValid());
-		TSharedPtr<DocTreeNode> ChildNode = Parent->FindChildByName(ChildName);
-		if (!ChildNode.IsValid() && bCreate)
-		{
-			ChildNode = Parent->AppendChild(ChildName);
-		}
-		return ChildNode;
-	}
-
-	// UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
-	static bool GenerateDoxygenNode(const UField* Field, TSharedPtr<DocTreeNode> ParentNode)
-	{
-		check(Field);
-		const FString& Comment = Field->GetMetaData(TEXT("Comment"));
-		return GenerateDoxygenNodeFromComment(Comment, ParentNode);
-	}
-
-	// FField are FProperty (is there a way to merge with UField?)
-	static bool GenerateDoxygenNode(const FField* Field, TSharedPtr<DocTreeNode> ParentNode)
-	{
-		check(Field);
-		const FString& Comment = Field->GetMetaData(TEXT("Comment"));
-		return GenerateDoxygenNodeFromComment(Comment, ParentNode);
-	}
-
-	static bool GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTreeNode> ParentNode)
-	{
-		check(Struct && ParentNode.IsValid());
-		bool bHasProperties = false;
-		for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
-		{
-			const bool bBlueprintVisible = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintVisible);
-			const bool bEditInEditor = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_Edit) && !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_EditConst);
-			const bool bDeprecated = PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated);
-
-			if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
-				continue;
-
-			bHasProperties = true;
-
-			UStruct* Parent = Struct->GetSuperStruct();
-			const bool bInherited = Parent && PropertyIterator->IsInContainer(Parent);
-			UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s (inherited: %d [parent: %s])"), *Struct->GetName(), *PropertyIterator->GetNameCPP(), bInherited, *GetNameSafe(Parent));
-
-			auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
-			auto Member = MemberList->AppendChild(TEXT("field"));
-			Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
-			Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
-			Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
-			Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
-			Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
-
-
-			if (bBlueprintVisible)
-			{
-				const bool bBlueprintReadOnly = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintReadOnly);
-				FString BlueprintAccess = TEXT("Read");
-				BlueprintAccess  += ((bBlueprintReadOnly) ? TEXT(" Only") : TEXT("/Write"));
-				Member->AppendChildWithValueEscaped("blueprint_access", BlueprintAccess);
-			}
-
-			if (bEditInEditor)
-			{
-				const bool bEditTemplate = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnTemplate);
-				const bool bEditInstance = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnInstance);
-
-				if (bEditTemplate || bEditInstance)
-				{
-					FString EditorAccess = TEXT("Anywhere");
-					if (!bEditTemplate)
-						EditorAccess = TEXT("Instance Only");
-					if (!bEditInstance)
-						EditorAccess = TEXT("Defaults Only");
-
-					Member->AppendChildWithValueEscaped("editor_access", EditorAccess);
-				}
-			}
-
-			if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
-			{
-				FText DetailedMessage =
-					FText::FromString(PropertyIterator->GetMetaData(FBlueprintMetadata::MD_DeprecationMessage));
-				Member->AppendChildWithValueEscaped("deprecated", DetailedMessage.ToString());
-			}
-
-			Member->AppendChildWithValueEscaped("description", FDocGenHelper::GetDescription(*PropertyIterator));
-
-			// Generate the detailed doxygen tags from the comment.
-			const bool bHasComment = GenerateDoxygenNode(*PropertyIterator, Member);
-
-			// Avoid any property that is part of the superclass and then "redefined" in this Class
-			if (bInherited == false && bHasComment == false)
-			{
-				const bool IsPublic = PropertyIterator->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic);
-				const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
-
-				PrintWarning(FString::Printf(
-					TEXT("No doc for %s (IsPublic %i): %s::%s")
-					, *Context
-					, IsPublic
-					, *Struct->GetName()
-					, *PropertyIterator->GetNameCPP()
-				));
-			}
-		}
-		return bHasProperties;
-	}
-
-	static bool GenerateParamNode(const UEdGraphPin* Pin, TSharedPtr<DocTreeNode> ParentNode)
-	{
-		if (!ShouldDocumentPin(Pin))
-			return false;
-
-		auto Input = ParentNode->AppendChild(TEXT("param"));
-
-		FString PinName, PinType, PinDesc;
-		ExtractPinInformation(Pin, PinName, PinType, PinDesc);
-
-		Input->AppendChildWithValueEscaped(TEXT("name"), PinName);
-		Input->AppendChildWithValueEscaped(TEXT("type"), PinType);
-		Input->AppendChildWithValueEscaped(TEXT("description"), PinDesc);
-		return true;
-	}
-
-	// DocId for any UObject derived class.
-	static FString GetDocId(const UObject* Object)
-	{
-		return Object->GetName();
-	}
-
-	// Overload of the GetDocId for UEdGraphNode
-	static FString GetDocId(const UEdGraphNode* Node)
-	{
-		// @TODO: Not sure this is right thing to use
-		return Node->GetDocumentationExcerptName();
-	}
-
-	// Forward GetDocId if called on a TWeakObjectPtr<>
-	template<typename T>
-	static FString GetDocId(const TWeakObjectPtr<T>& Ptr)
-	{
-		return GetDocId(Ptr.Get());
-	}
-
-	static bool SerializeDocToFile(TSharedPtr<DocTreeNode> Doc, const FString& OutputDirectory, const FString& FileName, const TArray<UDocGenOutputFormatFactoryBase*>& OutputFormats)
-	{
-		bool bSuccess = true;
-		for (const auto& FactoryObject : OutputFormats)
-		{
-			auto Serializer = FactoryObject->CreateSerializer();
-			Doc->SerializeWith(Serializer);
-			bSuccess &= Serializer->SaveToFile(OutputDirectory, FileName);
-		}
-		return bSuccess;
-	}
-
-	// Return true if the directoy has been created.
-	static bool CreateImgDir(const FString& ParentDirectory)
-	{
-		// @TODO: Should create the img folder only if there is node images
-		auto ImagePath = ParentDirectory / "img";
-		if (!IFileManager::Get().DirectoryExists(*ImagePath))
-		{
-			IFileManager::Get().MakeDirectory(*ImagePath, true);
-			return true;
-		}
-		return false;
-	}
-
-	template<class T>
-	static void SerializeDocMap(TMap<T, TSharedPtr<DocTreeNode>> Map, const FString& OutputDirectory, const TArray<UDocGenOutputFormatFactoryBase*>& OutputFormats)
-	{
-		for (const auto& Entry : Map)
-		{
-			auto DocId = GetDocId(Entry.Key);
-			const auto DocPath = OutputDirectory / DocId;
-			FDocGenHelper::SerializeDocToFile(Entry.Value, DocPath, DocId, OutputFormats);
-		}
-	}
-};
+	auto IndexDoc = CreateDocFile<FIndexDocFile>();
+	CreateDocFile<FClassDocFile>(IndexDoc);
+	CreateDocFile<FStructDocFile>(IndexDoc);
+	CreateDocFile<FEnumDocFile>(IndexDoc);
+}
 
 FNodeDocsGenerator::~FNodeDocsGenerator()
 {
@@ -539,9 +76,11 @@ bool FNodeDocsGenerator::GT_Init(FString const& InDocsTitle, FString const& InOu
 
 	DocsTitle = InDocsTitle;
 
-	IndexTree = InitIndexDocTree(DocsTitle);
+	//IndexTree = IndexDoc.CreateDocTree(DocsTitle);
+	GetDocFile<FIndexDocFile>()->CreateDocTree(DocsTitle);
 
-	ClassDocTreeMap.Empty();
+	//ClassDoc.Clear();
+	GetDocFile<FClassDocFile>()->Clear();
 	OutputDir = InOutputDir;
 
 	return true;
@@ -569,36 +108,33 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	}
 
 	const auto AssociatedClass = MapToAssociatedClass(K2NodeInst, SourceObject);
+	if (AssociatedClass == nullptr)
+	{
+		UE_LOG(LogKantanDocGen, Error, TEXT("Can't found associated class for node %s."), *K2NodeInst->GetName());
+		return nullptr;
+	}
 
 	// Create the class doc tree if necessary.
-	GetClassDocTree(AssociatedClass, /*bCreate = */true);
+	//TSharedPtr<DocTreeNode> ClassDocTree = ClassDoc.GetDocTree(AssociatedClass, /*bCreate = */true);
+	TSharedPtr<DocTreeNode> ClassDocTree = GetDocFile<FClassDocFile>()->GetDocTree(AssociatedClass, /*bCreate = */true);
 
 	const FString ClassID = FDocGenHelper::GetDocId(AssociatedClass);
 
 	OutState = FNodeProcessingState();
 	OutState.ClassDocsPath = OutputDir / TEXT("Classes") / ClassID;
-	OutState.ClassDocTree = ClassDocTreeMap.FindChecked(AssociatedClass);
+	OutState.ClassDocTree = ClassDocTree;
 
 	return K2NodeInst;
 }
 
 bool FNodeDocsGenerator::GT_Finalize(FString OutputPath)
 {
-	if (!SaveClassDocFile(OutputPath))
+	for (const auto& DocFile : DocFiles)
 	{
-		return false;
-	}
-	if (!SaveEnumDocFile(OutputPath))
-	{
-		return false;
-	}
-	if (!SaveStructDocFile(OutputPath))
-	{
-		return false;
-	}
-	if (!SaveIndexFile(OutputPath))
-	{
-		return false;
+		if (!DocFile.Value.IsValid() || !DocFile.Value->SaveFile(OutputPath, OutputFormats))
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -713,111 +249,6 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 	}
 
 	return bSuccess;
-}
-
-TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitIndexDocTree(FString const& IndexTitle)
-{
-	TSharedPtr<DocTreeNode> IndexDocTree = MakeShared<DocTreeNode>();
-	IndexDocTree->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("index"));
-	IndexDocTree->AppendChildWithValueEscaped(TEXT("display_name"), IndexTitle);
-	return IndexDocTree;
-}
-
-TSharedPtr<DocTreeNode> FNodeDocsGenerator::GetClassDocTree(UClass* Class, bool bCreate /* = false*/)
-{
-	TSharedPtr<DocTreeNode>* FoundClassDocTree = ClassDocTreeMap.Find(Class);
-	if (FoundClassDocTree)
-		return *FoundClassDocTree;
-
-	if (!bCreate)
-		return nullptr;
-
-	TSharedPtr<DocTreeNode> NewClassDocTree = InitClassDocTree(Class);
-	ClassDocTreeMap.Add(Class, NewClassDocTree);
-	UpdateIndexDocWithClass(IndexTree, Class);
-	return NewClassDocTree;
-}
-
-TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitClassDocTree(UClass* Class)
-{
-	TSharedPtr<DocTreeNode> ClassDoc = MakeShared<DocTreeNode>();
-	ClassDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("class"));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
-	ClassDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Class));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Class));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
-	ClassDoc->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
-	return ClassDoc;
-}
-
-TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitStructDocTree(UScriptStruct* Struct)
-{
-	TSharedPtr<DocTreeNode> StructDoc = MakeShared<DocTreeNode>();
-	StructDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("struct"));
-	StructDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
-	StructDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
-	StructDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
-	StructDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct));
-	StructDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Struct));
-	StructDoc->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Struct));
-	StructDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Struct)));
-	return StructDoc;
-}
-
-TSharedPtr<DocTreeNode> FNodeDocsGenerator::InitEnumDocTree(UEnum* Enum)
-{
-	TSharedPtr<DocTreeNode> EnumDoc = MakeShared<DocTreeNode>();
-	EnumDoc->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("enum"));
-	EnumDoc->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
-	EnumDoc->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
-	EnumDoc->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
-	EnumDoc->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
-	EnumDoc->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Enum));
-	EnumDoc->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Enum)));
-	return EnumDoc;
-}
-
-bool FNodeDocsGenerator::UpdateIndexDocWithClass(TSharedPtr<DocTreeNode> DocTree, UClass* Class)
-{
-	auto DocTreeClassesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("classes"), /*bCreate = */true);
-	auto DocTreeClass = DocTreeClassesElement->AppendChild("class");
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Class, /*bShortDescription =*/true));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("group"), FDocGenHelper::GetClassGroup(Class));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
-	DocTreeClass->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
-	return true;
-}
-
-bool FNodeDocsGenerator::UpdateIndexDocWithStruct(TSharedPtr<DocTreeNode> DocTree, UStruct* Struct)
-{
-	auto DocTreeStructsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("structs"), /*bCreate = */true);
-	auto DocTreeStruct = DocTreeStructsElement->AppendChild("struct");
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Struct));
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Struct));
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Struct, /*bShortDescription =*/true));
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Struct));
-	DocTreeStruct->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Struct)));
-	return true;
-}
-
-bool FNodeDocsGenerator::UpdateIndexDocWithEnum(TSharedPtr<DocTreeNode> DocTree, UEnum* Enum)
-{
-	auto DocTreeEnumsElement = FDocGenHelper::GetChildNode(DocTree, TEXT("enums"), /*bCreate = */true);
-	auto DocTreeEnum = DocTreeEnumsElement->AppendChild("enum");
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Enum));
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Enum));
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum, /*bShortDescription =*/true));
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Enum));
-	DocTreeEnum->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Enum)));
-	return true;
 }
 
 bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node)
@@ -945,128 +376,16 @@ bool FNodeDocsGenerator::GenerateTypeMembers(UObject* Type)
 	if (Type)
 	{
 		UE_LOG(LogKantanDocGen, Display, TEXT("generating type members for : %s"), *Type->GetName());
-		if (Type->GetClass() == UClass::StaticClass())
+		for (const auto& DocFile : DocFiles)
 		{
-			UClass* ClassInstance = Cast<UClass>(Type);
-			TSharedPtr<DocTreeNode> ClassDocTree = GetClassDocTree(ClassInstance);
-			bool bIsCreated = false;
-			if (!ClassDocTree.IsValid())
-			{
-				ClassDocTree = InitClassDocTree(ClassInstance);
-				bIsCreated = true;
-			}
-			const bool bIsBlueprintable = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
-			const bool bIsBlueprintType = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
-			bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
-			bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
+			if (Type->GetClass() != DocFile.Key)
+				continue;
 
-			const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(ClassInstance, ClassDocTree);
-
-			// Only insert this into the map of classdocs if:
-			// - it wasnt already in there,
-			// - we actually need it to be included
-			if (bIsCreated && bClassShouldBeDocumented)
-			{
-				ClassDocTreeMap.Add(ClassInstance, ClassDocTree);
-				UpdateIndexDocWithClass(IndexTree, ClassInstance);
-			}
-
-			if (bHasComment == false)
-			{
-				FDocGenHelper::PrintWarning(FString::Printf(TEXT("No doc for UClass: %s"), *Type->GetName()));
-			}
-		}
-		else if (Type->GetClass() == UScriptStruct::StaticClass())
-		{
-			UScriptStruct* Struct = Cast<UScriptStruct>(Type);
-			if (!Struct->HasAnyFlags(EObjectFlags::RF_ArchetypeObject | EObjectFlags::RF_ClassDefaultObject))
-			{
-				auto StructDocTree = InitStructDocTree(Struct);
-				const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(Struct, StructDocTree);
-				if (bHasComment == false)
-				{
-					FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Type->GetName()));
-				}
-
-				const bool bIsBlueprintable = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
-				const bool bIsBlueprintType = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
-				bool bShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
-				bShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
-
-				if (bShouldBeDocumented)
-				{
-					StructDocTreeMap.Add(Struct, StructDocTree);
-					UpdateIndexDocWithStruct(IndexTree, Struct);
-				}
-			}
-		}
-		else if (Type->GetClass() == UEnum::StaticClass())
-		{
-			UEnum* EnumInstance = Cast<UEnum>(Type);
-			if ((EnumInstance != nullptr) && EnumInstance->HasAnyFlags(RF_NeedLoad))
-			{
-				EnumInstance->GetLinker()->Preload(EnumInstance);
-			}
-			EnumInstance->ConditionalPostLoad();
-
-			auto EnumDocTree = InitEnumDocTree(EnumInstance);
-
-			const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(EnumInstance, EnumDocTree);
-			if (bHasComment == false)
-			{
-				FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *Type->GetName()));
-			}
-
-			bool bShouldBeDocumented = EnumInstance->HasMetaData(*FBlueprintMetadata::MD_AllowableBlueprintVariableType.ToString());
-
-			auto ValueList = FDocGenHelper::GetChildNode(EnumDocTree, TEXT("values"), /*bCreate = */true);
-			for (int32 EnumIndex = 0; EnumIndex < EnumInstance->NumEnums() - 1; ++EnumIndex)
-			{
-				bool const bShouldBeHidden = EnumInstance->HasMetaData(TEXT("Hidden"), EnumIndex) ||
-											 EnumInstance->HasMetaData(TEXT("Spacer"), EnumIndex);
-				if (bShouldBeHidden)
-					continue;
-
-				auto Value = ValueList->AppendChild("value");
-				Value->AppendChildWithValueEscaped("name", EnumInstance->GetNameStringByIndex(EnumIndex));
-				Value->AppendChildWithValueEscaped("displayname",
-													EnumInstance->GetDisplayNameTextByIndex(EnumIndex).ToString());
-				Value->AppendChildWithValueEscaped("description",
-													EnumInstance->GetToolTipTextByIndex(EnumIndex).ToString());
-			}
-
-			if (bShouldBeDocumented)
-			{
-				UpdateIndexDocWithEnum(IndexTree, EnumInstance);
-				EnumDocTreeMap.Add(EnumInstance, EnumDocTree);
-			}
+			DocFile.Value->GenerateTypeMembers(Type);
+			break;
 		}
 	}
 
-	return true;
-}
-
-bool FNodeDocsGenerator::SaveIndexFile(FString const& OutDir)
-{
-	FDocGenHelper::SerializeDocToFile(IndexTree, OutDir, TEXT("index"), OutputFormats);
-	return true;
-}
-
-bool FNodeDocsGenerator::SaveClassDocFile(FString const& OutDir)
-{
-	FDocGenHelper::SerializeDocMap(ClassDocTreeMap, OutDir / TEXT("Classes"), OutputFormats);
-	return true;
-}
-
-bool FNodeDocsGenerator::SaveEnumDocFile(FString const& OutDir)
-{
-	FDocGenHelper::SerializeDocMap(EnumDocTreeMap, OutDir / TEXT("Enums"), OutputFormats);
-	return true;
-}
-
-bool FNodeDocsGenerator::SaveStructDocFile(FString const& OutDir)
-{
-	FDocGenHelper::SerializeDocMap(StructDocTreeMap, OutDir / TEXT("Structs"), OutputFormats);
 	return true;
 }
 
