@@ -47,7 +47,7 @@ bool FEnumDocFile::GenerateTypeMembers(UEnum* EnumInstance)
 		FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *EnumInstance->GetName()));
 	}
 
-	bool bShouldBeDocumented = EnumInstance->HasMetaData(*FBlueprintMetadata::MD_AllowableBlueprintVariableType.ToString());
+	bool bShouldBeDocumented = FDocGenHelper::IsBlueprintType(EnumInstance);
 
 	auto ValueList = FDocGenHelper::GetChildNode(EnumDocTree, TEXT("values"), /*bCreate = */true);
 	for (int32 EnumIndex = 0; EnumIndex < EnumInstance->NumEnums() - 1; ++EnumIndex)

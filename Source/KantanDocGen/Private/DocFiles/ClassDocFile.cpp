@@ -46,8 +46,9 @@ bool FClassDocFile::GenerateTypeMembers(UClass* ClassInstance)
 		ClassDocTree = CreateDocTree(ClassInstance);
 		bIsCreated = true;
 	}
-	const bool bIsBlueprintable = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
-	const bool bIsBlueprintType = (nullptr != ClassInstance->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
+
+	const bool bIsBlueprintable = FDocGenHelper::IsBlueprintable(ClassInstance);
+	const bool bIsBlueprintType = FDocGenHelper::IsBlueprintType(ClassInstance);
 	bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
 	bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
 
@@ -63,7 +64,7 @@ bool FClassDocFile::GenerateTypeMembers(UClass* ClassInstance)
 
 	if (bHasComment == false)
 	{
-		FDocGenHelper::PrintWarning(FString::Printf(TEXT("No doc for UClass: %s"), *ClassInstance->GetName()));
+		FDocGenHelper::PrintWarning(FString::Printf(TEXT("No description for UClass: %s"), *ClassInstance->GetName()));
 	}
 
 	return true;

@@ -43,9 +43,8 @@ bool FStructDocFile::GenerateTypeMembers(UScriptStruct* Struct)
 			FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Struct->GetName()));
 		}
 
-		const bool bIsBlueprintable = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase));
-		const bool bIsBlueprintType = (nullptr != Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType));
-		bool bShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
+		const bool bIsBlueprintType = FDocGenHelper::IsBlueprintType(Struct);
+		bool bShouldBeDocumented = bIsBlueprintType;
 		bShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(Struct, StructDocTree);
 
 		if (bShouldBeDocumented)

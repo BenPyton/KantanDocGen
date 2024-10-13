@@ -288,6 +288,17 @@ bool FDocGenHelper::IsBlueprintable(const UField* Field)
 
 bool FDocGenHelper::IsBlueprintType(const UField* Field)
 {
+	if (const UStruct* Struct = Cast<UStruct>(Field))
+	{
+		// Struct is a blueprint type only if "BlueprintType" keyword is present in the hierarchy AND either:
+		// - there is no NotBlueprintType
+		// - BlueprintType struct is child of NotBlueprintType struct
+		const UStruct* FirstBlueprintTypeStruct = Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_AllowableBlueprintVariableType);
+		const UStruct* FirstNotBlueprintTypeStruct = Struct->HasMetaDataHierarchical(FBlueprintMetadata::MD_NotAllowableBlueprintVariableType);
+		return (FirstBlueprintTypeStruct != nullptr)
+			&& (FirstNotBlueprintTypeStruct == nullptr || FirstBlueprintTypeStruct->IsChildOf(FirstNotBlueprintTypeStruct));
+	}
+	
 	return GetBoolMetadata(Field, FBlueprintMetadata::MD_AllowableBlueprintVariableType);
 }
 
