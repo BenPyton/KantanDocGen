@@ -343,11 +343,11 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 		if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
 			continue;
 
-		bHasProperties = true;
-
 		UStruct* Parent = Struct->GetSuperStruct();
 		const bool bInherited = Parent && PropertyIterator->IsInContainer(Parent);
 		UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s (inherited: %d [parent: %s])"), *Struct->GetName(), *PropertyIterator->GetNameCPP(), bInherited, *GetNameSafe(Parent));
+
+		bHasProperties |= !bInherited;
 
 		auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
 		auto Member = MemberList->AppendChild(TEXT("field"));
@@ -356,7 +356,6 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 		Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
 		Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 		Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
-
 
 		if (bBlueprintVisible)
 		{
@@ -402,7 +401,7 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 			const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
 
 			PrintWarning(FString::Printf(
-				TEXT("No doc for %s (IsPublic %i): %s::%s")
+				TEXT("No description for %s (IsPublic %i): %s::%s")
 				, *Context
 				, IsPublic
 				, *Struct->GetName()
