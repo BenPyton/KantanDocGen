@@ -7,6 +7,15 @@
 #include "ClassDocFile.h"
 #include "DocTreeNode.h"
 
+namespace
+{
+	bool IsHidden(UClass* Class)
+	{
+		check(Class);
+		return Class->HasAnyClassFlags(EClassFlags::CLASS_Hidden);
+	}
+}
+
 bool FClassDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UClass* Class) const
 {
 	DocTree->AppendChildWithValueEscaped(TEXT("doctype"), TEXT("class"));
@@ -49,8 +58,10 @@ bool FClassDocFile::GenerateTypeMembers(UClass* ClassInstance)
 
 	const bool bIsBlueprintable = FDocGenHelper::IsBlueprintable(ClassInstance);
 	const bool bIsBlueprintType = FDocGenHelper::IsBlueprintType(ClassInstance);
+	const bool bIsHidden = ::IsHidden(ClassInstance);
 	bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
 	bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
+	bClassShouldBeDocumented &= !bIsHidden;
 
 	const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(ClassInstance, ClassDocTree);
 
