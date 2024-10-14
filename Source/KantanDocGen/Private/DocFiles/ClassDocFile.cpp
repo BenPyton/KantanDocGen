@@ -28,6 +28,20 @@ bool FClassDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UClass* Class) 
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
 	DocTree->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
+
+	if (!Class->Interfaces.IsEmpty())
+	{
+		auto DocTreeInterfaceList = DocTree->AppendChild("interfaces");
+		for (const auto& Interface : Class->Interfaces)
+		{
+			auto DocTreeInterface = DocTreeInterfaceList->AppendChild("interface");
+			DocTreeInterface->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Interface.Class));
+			DocTreeInterface->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Interface.Class));
+			DocTreeInterface->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Interface.Class, /*bShortDescription =*/true));
+			DocTreeInterface->AppendChildWithValueEscaped(TEXT("native"), FDocGenHelper::GetBoolString(Interface.PointerOffset != 0));
+		}
+	}
+
 	return true;
 }
 
