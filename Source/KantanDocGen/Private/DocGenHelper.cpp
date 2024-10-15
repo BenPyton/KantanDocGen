@@ -343,9 +343,14 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 		if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
 			continue;
 
-		UStruct* Parent = Struct->GetSuperStruct();
-		const bool bInherited = Parent && PropertyIterator->IsInContainer(Parent);
-		UE_LOG(LogKantanDocGen, Display, TEXT("member for %s found : %s (inherited: %d [parent: %s])"), *Struct->GetName(), *PropertyIterator->GetNameCPP(), bInherited, *GetNameSafe(Parent));
+		UStruct* PropertyContainer = PropertyIterator->Owner.Get<UStruct>();
+		const bool bInherited = PropertyContainer != Struct;
+		UE_LOG(LogKantanDocGen, Display, TEXT("[%s] Member found: %s (inherited: %s [owner: %s])")
+			, *Struct->GetName()
+			, *PropertyIterator->GetNameCPP()
+			, *FDocGenHelper::GetBoolString(bInherited)
+			, *GetNameSafe(PropertyContainer)
+		);
 
 		bHasProperties |= !bInherited;
 
@@ -356,6 +361,13 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 		Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
 		Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 		Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
+
+		if (bInherited)
+		{
+			auto Inheritance = Member->AppendChild(TEXT("inheritedFrom"));
+			Inheritance->AppendChildWithValueEscaped("id", FDocGenHelper::GetDocId(PropertyContainer));
+			Inheritance->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(PropertyContainer));
+		}
 
 		if (bBlueprintVisible)
 		{
