@@ -12,7 +12,7 @@
 	
 	<!-- Include some common templates -->
 	<xsl:import href="common.xsl"/>
-	
+
 	<!-- Root template -->
 	<xsl:template match="/">
 		<xsl:apply-templates select="root"/>
@@ -62,6 +62,10 @@
 			<xsl:text>\&#xA;</xsl:text>
 		</xsl:if>
 		<xsl:apply-templates select="classTree"/>
+		<xsl:if test='(sourcepath or classTree) and interfaces'>
+			<xsl:text>\&#xA;</xsl:text>
+		</xsl:if>
+		<xsl:apply-templates select="interfaces"/>
 		
 		<xsl:if test="blueprint_type = 'true' or blueprintable = 'true'">
 			<xsl:text>\&#xA;**Exposed in blueprint as:** </xsl:text>
@@ -77,9 +81,10 @@
 		<xsl:text>&#xA;</xsl:text>
 		
 		<!-- Tables -->
-		<xsl:apply-templates select="properties | fields[.//inherited='false']"/>
+		<xsl:apply-templates select="properties | fields"/>
 		<xsl:apply-templates select="nodes"/>
 		<xsl:apply-templates select="values"/>
+
 	</xsl:template>
 	
 	<xsl:template match="sourcepath">
@@ -92,6 +97,25 @@
 		<xsl:text>**Hierarchy:** *</xsl:text>
 		<xsl:value-of select="replace(., '&gt;', '&amp;rarr;')"/>
 		<xsl:text>*</xsl:text>
+	</xsl:template>
+
+	<xsl:template match="interfaces">
+		<xsl:text>**Implements:** </xsl:text>
+		<xsl:for-each select="interface">
+			<xsl:call-template name="link">
+				<xsl:with-param name="name" select="display_name"/>
+				<xsl:with-param name="href">
+					<xsl:text>../</xsl:text>
+					<xsl:value-of select="id"/>
+					<xsl:text>/</xsl:text>
+					<xsl:value-of select="id"/>
+					<xsl:text>.md</xsl:text>
+				</xsl:with-param>
+			</xsl:call-template>
+			<xsl:if test="position() != last()">
+				<xsl:text>, </xsl:text>
+			</xsl:if>
+		</xsl:for-each>
 	</xsl:template>
 	
 	<!-- Template for the node table -->

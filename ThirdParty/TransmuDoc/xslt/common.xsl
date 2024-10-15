@@ -5,6 +5,8 @@
 	xmlns:my="http://benpyton.github.io/TransmuDoc"
 	>
 	
+	<xsl:key name="class-by-id" match="class" use="id" />
+
 	<!-- Notify file transformation -->
 	<xsl:template name="notification">
 		<xsl:message>
@@ -32,7 +34,8 @@
 		<xsl:text>&#xA;&#xA;</xsl:text>
 		<xsl:text>| Name | Type | Category | Accessors | Description |&#xA;</xsl:text>
 		<xsl:text>| ---- | ---- | -------- | --------- | ----------- |&#xA;</xsl:text>
-		<xsl:apply-templates select="property | field[inherited='false']">
+		<xsl:apply-templates select="property | field[not(inheritedFrom) or key('class-by-id', inheritedFrom/id, document('../../index.xml',.))]">
+			<xsl:sort select="inheritedFrom/id"/>
 			<xsl:sort select="category"/>
 			<xsl:sort select="display_name"/>
 		</xsl:apply-templates>
@@ -42,6 +45,11 @@
 	<xsl:template match="property|field">
 		<xsl:text>| </xsl:text>
 		<xsl:apply-templates select="display_name"/>
+		<xsl:if test="inheritedFrom">
+			<xsl:text>&lt;br/&gt;(inherited from </xsl:text>
+			<xsl:apply-templates select="inheritedFrom/display_name"/>
+			<xsl:text>)</xsl:text>
+		</xsl:if>
 		<xsl:text> | </xsl:text>
 		<xsl:value-of select="my:format(type)"/>
 		<xsl:text> | </xsl:text>
