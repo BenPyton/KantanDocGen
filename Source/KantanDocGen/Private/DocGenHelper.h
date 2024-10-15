@@ -28,6 +28,7 @@ public:
 	static FString GetNodeFullTitle(const UEdGraphNode* Node);
 	static FString GetNodeDescription(const UEdGraphNode* Node);
 	static FString GetTypeSignature(const FProperty* Property);
+	static FString GetEventSignature(const FProperty* Property);
 
 	// UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
 	static FString GetDisplayName(const UField* Field);
@@ -62,7 +63,9 @@ public:
 	// FField are FProperty (is there a way to merge with UField?)
 	static bool GenerateDoxygenNode(const FField* Field, TSharedPtr<DocTreeNode> ParentNode);
 	static bool GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTreeNode> ParentNode);
+	static bool GenerateEventsNode(const UStruct* Struct, TSharedPtr<DocTreeNode> ParentNode);
 	static bool GenerateParamNode(const UEdGraphPin* Pin, TSharedPtr<DocTreeNode> ParentNode);
+	static bool GenerateInheritanceNode(const FField* Field, const UField* Parent, TSharedPtr<DocTreeNode> ParentNode);
 
 	// DocId for any UObject derived class.
 	static FString GetDocId(const UObject* Object);

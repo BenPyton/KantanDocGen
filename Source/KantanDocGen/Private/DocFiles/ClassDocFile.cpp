@@ -75,6 +75,7 @@ bool FClassDocFile::GenerateTypeMembers(UClass* ClassInstance)
 	const bool bIsHidden = ::IsHidden(ClassInstance);
 	bool bClassShouldBeDocumented = bIsBlueprintable || bIsBlueprintType;
 	bClassShouldBeDocumented |= FDocGenHelper::GenerateFieldsNode(ClassInstance, ClassDocTree);
+	bClassShouldBeDocumented |= FDocGenHelper::GenerateEventsNode(ClassInstance, ClassDocTree);
 	bClassShouldBeDocumented &= !bIsHidden;
 
 	const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(ClassInstance, ClassDocTree);

@@ -169,6 +169,15 @@ FString FDocGenHelper::GetTypeSignature(const FProperty* Property)
 	return ParamConst + ParamType + ExtendedParameters + ParamRef;
 }
 
+FString FDocGenHelper::GetEventSignature(const FProperty* Property)
+{
+	check(Property);
+	auto Delegate = CastField<FMulticastDelegateProperty>(Property);
+	check(Delegate);
+	// @TODO: Find a way to get the signature of the delegate
+	return FString();
+}
+
 // UField are UClass, UStruct and UEnum (is there a way to merge with FField?)
 FString FDocGenHelper::GetDisplayName(const UField* Field)
 {
@@ -343,31 +352,21 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 		if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
 			continue;
 
-		UStruct* PropertyContainer = PropertyIterator->Owner.Get<UStruct>();
-		const bool bInherited = PropertyContainer != Struct;
-		UE_LOG(LogKantanDocGen, Display, TEXT("[%s] Member found: %s (inherited: %s [owner: %s])")
-			, *Struct->GetName()
-			, *PropertyIterator->GetNameCPP()
-			, *FDocGenHelper::GetBoolString(bInherited)
-			, *GetNameSafe(PropertyContainer)
-		);
-
-		bHasProperties |= !bInherited;
-
 		auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
 		auto Member = MemberList->AppendChild(TEXT("field"));
 		Member->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
 		Member->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
 		Member->AppendChildWithValueEscaped("type", FDocGenHelper::GetTypeSignature(*PropertyIterator));
-		Member->AppendChildWithValueEscaped("inherited", FDocGenHelper::GetBoolString(bInherited));
 		Member->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
 
-		if (bInherited)
-		{
-			auto Inheritance = Member->AppendChild(TEXT("inheritedFrom"));
-			Inheritance->AppendChildWithValueEscaped("id", FDocGenHelper::GetDocId(PropertyContainer));
-			Inheritance->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(PropertyContainer));
-		}
+		const bool bInherited = FDocGenHelper::GenerateInheritanceNode(*PropertyIterator, Struct, Member);
+		bHasProperties |= !bInherited;
+
+		UE_LOG(LogKantanDocGen, Display, TEXT("[%s] Member found: %s (inherited: %s)")
+			, *Struct->GetName()
+			, *PropertyIterator->GetNameCPP()
+			, *FDocGenHelper::GetBoolString(bInherited)
+		);
 
 		if (bBlueprintVisible)
 		{
@@ -394,7 +393,7 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 			}
 		}
 
-		if (PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated))
+		if (bDeprecated)
 		{
 			FText DetailedMessage =
 				FText::FromString(PropertyIterator->GetMetaData(FBlueprintMetadata::MD_DeprecationMessage));
@@ -424,6 +423,63 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 	return bHasProperties;
 }
 
+bool FDocGenHelper::GenerateEventsNode(const UStruct* Struct, TSharedPtr<DocTreeNode> ParentNode)
+{
+	check(Struct && ParentNode.IsValid());
+	bool bHasEvent = false;
+	for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
+	{
+		const bool bBlueprintAssignable = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintAssignable);
+		const bool bDeprecated = PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated);
+
+		if (!(bBlueprintAssignable))
+			continue;
+
+		auto EventList = FDocGenHelper::GetChildNode(ParentNode, TEXT("events"), /*bCreate = */true);
+		auto Event = EventList->AppendChild(TEXT("event"));
+		Event->AppendChildWithValueEscaped("name", PropertyIterator->GetNameCPP());
+		Event->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(*PropertyIterator));
+		Event->AppendChildWithValueEscaped("signature", FDocGenHelper::GetEventSignature(*PropertyIterator));
+		Event->AppendChildWithValueEscaped("category", FDocGenHelper::GetCategory(*PropertyIterator));
+
+		const bool bInherited = FDocGenHelper::GenerateInheritanceNode(*PropertyIterator, Struct, Event);
+		bHasEvent |= !bInherited;
+		UE_LOG(LogKantanDocGen, Display, TEXT("[%s] Event found: %s (inherited: %s)")
+			, *Struct->GetName()
+			, *PropertyIterator->GetNameCPP()
+			, *FDocGenHelper::GetBoolString(bInherited)
+		);
+
+		if (bDeprecated)
+		{
+			FText DetailedMessage =
+				FText::FromString(PropertyIterator->GetMetaData(FBlueprintMetadata::MD_DeprecationMessage));
+			Event->AppendChildWithValueEscaped("deprecated", DetailedMessage.ToString());
+		}
+
+		Event->AppendChildWithValueEscaped("description", FDocGenHelper::GetDescription(*PropertyIterator));
+
+		// Generate the detailed doxygen tags from the comment.
+		const bool bHasComment = GenerateDoxygenNode(*PropertyIterator, Event);
+
+		// Avoid any property that is part of the superclass and then "redefined" in this Class
+		if (bInherited == false && bHasComment == false)
+		{
+			const bool IsPublic = PropertyIterator->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPublic);
+			const FString Context = Cast<UClass>(Struct) ? TEXT("UClass-MemberTag") : TEXT("UScriptStruct-property");
+
+			PrintWarning(FString::Printf(
+				TEXT("No description for %s (IsPublic %i): %s::%s")
+				, *Context
+				, IsPublic
+				, *Struct->GetName()
+				, *PropertyIterator->GetNameCPP()
+			));
+		}
+	}
+	return bHasEvent;
+}
+
 bool FDocGenHelper::GenerateParamNode(const UEdGraphPin* Pin, TSharedPtr<DocTreeNode> ParentNode)
 {
 	if (!ShouldDocumentPin(Pin))
@@ -438,6 +494,21 @@ bool FDocGenHelper::GenerateParamNode(const UEdGraphPin* Pin, TSharedPtr<DocTree
 	Input->AppendChildWithValueEscaped(TEXT("type"), PinType);
 	Input->AppendChildWithValueEscaped(TEXT("description"), PinDesc);
 	return true;
+}
+
+
+bool FDocGenHelper::GenerateInheritanceNode(const FField* Field, const UField* Parent, TSharedPtr<DocTreeNode> ParentNode)
+{
+	check(Field != nullptr);
+	UField* Owner = Field->Owner.Get<UField>();
+	const bool bInherited = Owner != Parent;
+	if (bInherited)
+	{
+		auto InheritanceNode = ParentNode->AppendChild(TEXT("inheritedFrom"));
+		InheritanceNode->AppendChildWithValueEscaped("id", FDocGenHelper::GetDocId(Owner));
+		InheritanceNode->AppendChildWithValueEscaped("display_name", FDocGenHelper::GetDisplayName(Owner));
+	}
+	return bInherited;
 }
 
 // DocId for any UObject derived class.
