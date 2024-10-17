@@ -18,6 +18,7 @@
 #include "HAL/PlatformProcess.h"
 #include "Interfaces/IPluginManager.h"
 #include "K2Node.h"
+#include "K2Node_Variable.h"
 #include "KantanDocGenLog.h"
 #include "Misc/App.h"
 #include "NodeDocsGenerator.h"
@@ -255,11 +256,23 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 					continue;
 				}
 
-				// Generate doc
-				if (!Current->DocGen->GenerateNodeDocTree(NodeInst, NodeState))
+				if (auto NodeVariableInst = Cast<UK2Node_Variable>(NodeInst))
 				{
-					UE_LOG(LogKantanDocGen, Warning, TEXT("Failed to generate node doc output!"))
-					continue;
+					// Generate doc for variables
+					if(!Current->DocGen->GenerateVariableDocTree(NodeVariableInst, NodeState))
+					{
+						UE_LOG(LogKantanDocGen, Warning, TEXT("Failed to generate variable doc output!"))
+						continue;
+					}
+				}
+				else
+				{
+					// Generate doc
+					if (!Current->DocGen->GenerateNodeDocTree(NodeInst, NodeState))
+					{
+						UE_LOG(LogKantanDocGen, Warning, TEXT("Failed to generate node doc output!"))
+						continue;
+					}
 				}
 				++SuccessfulNodeCount;
 			}

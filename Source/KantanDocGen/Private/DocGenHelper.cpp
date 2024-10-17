@@ -11,6 +11,7 @@
 #include "OutputFormats/DocGenOutputFormatFactoryBase.h"
 #include "DoxygenParserHelpers.h"
 #include "KantanDocGenLog.h"
+#include "K2Node_Variable.h"
 
 void FDocGenHelper::TrimTarget(FString& Str)
 {
@@ -311,6 +312,71 @@ bool FDocGenHelper::IsBlueprintType(const UField* Field)
 	return GetBoolMetadata(Field, FBlueprintMetadata::MD_AllowableBlueprintVariableType);
 }
 
+FString FDocGenHelper::GetPropertyBlueprintAccess(const FProperty* Property, bool& bOutRead, bool& bOutWrite)
+{
+	bOutRead = Property->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintVisible);
+	bOutWrite = bOutRead && !Property->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintReadOnly);
+
+	if (bOutRead)
+	{
+		return (bOutWrite) ? TEXT("Read/Write") : TEXT("Read Only");
+	}
+	return FString();
+}
+
+FString FDocGenHelper::GetPropertyEditorAccess(const FProperty* Property, bool& bOutEditable, bool& bOutTemplate, bool& bOutInstance)
+{
+	bOutEditable = Property->HasAllPropertyFlags(EPropertyFlags::CPF_Edit) && !Property->HasAllPropertyFlags(EPropertyFlags::CPF_EditConst);
+	if (bOutEditable)
+	{
+		bOutTemplate = !Property->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnTemplate);
+		bOutInstance = !Property->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnInstance);
+
+		if (bOutTemplate || bOutInstance)
+		{
+			FString EditorAccess = TEXT("Anywhere");
+			if (!bOutTemplate)
+				EditorAccess = TEXT("Instance Only");
+			if (!bOutInstance)
+				EditorAccess = TEXT("Defaults Only");
+			return EditorAccess;
+		}
+	}
+	return FString();
+}
+
+// @TODO: Move it in a specialized class of FDocFile
+FString FDocGenHelper::GetNodeImgName(const UEdGraphNode* Node)
+{
+	const FString DocId = GetDocId(Node);
+
+	if (const auto* VarNode = Cast<UK2Node_Variable>(Node))
+	{
+		const FString NodeName = VarNode->GetClass()->GetName();
+		if (NodeName.EndsWith(TEXT("Get")))
+		{
+			return DocId + TEXT("_get");
+		}
+		else if (NodeName.EndsWith(TEXT("Set")))
+		{
+			return DocId + TEXT("_set");
+		}
+	}
+
+	return DocId;
+}
+
+// @TODO: Move it in a specialized class of FDocFile
+FString FDocGenHelper::GetNodeDirectory(const UEdGraphNode* Node)
+{
+	if (Node->IsA<UK2Node_Variable>())
+	{
+		return TEXT("Variables");
+	}
+
+	return TEXT("Nodes");
+}
+
 // Get a child node of a DocTreeNode, creating it if necessary if bCreate is true.
 TSharedPtr<DocTreeNode> FDocGenHelper::GetChildNode(TSharedPtr<DocTreeNode> Parent, const FString& ChildName, bool bCreate)
 {
@@ -345,11 +411,14 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 	bool bHasProperties = false;
 	for (TFieldIterator<FProperty> PropertyIterator(Struct); PropertyIterator; ++PropertyIterator)
 	{
-		const bool bBlueprintVisible = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintVisible);
-		const bool bEditInEditor = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_Edit) && !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_EditConst);
-		const bool bDeprecated = PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated);
+		bool bBlueprintRead, bBlueprintWrite;
+		FString BlueprintAccess = GetPropertyBlueprintAccess(*PropertyIterator, bBlueprintRead, bBlueprintWrite);
 
-		if (!(bBlueprintVisible || bEditInEditor || bDeprecated))
+		bool bEditInEditor, bEditInTemplate, bEditInInstance;
+		FString EditorAccess = GetPropertyEditorAccess(*PropertyIterator, bEditInEditor, bEditInTemplate, bEditInInstance);
+
+		const bool bDeprecated = PropertyIterator->HasAnyPropertyFlags(CPF_Deprecated);
+		if (!(bBlueprintRead || bBlueprintWrite || bEditInEditor || bDeprecated))
 			continue;
 
 		auto MemberList = FDocGenHelper::GetChildNode(ParentNode, TEXT("fields"), /*bCreate = */true);
@@ -368,29 +437,14 @@ bool FDocGenHelper::GenerateFieldsNode(const UStruct* Struct, TSharedPtr<DocTree
 			, *FDocGenHelper::GetBoolString(bInherited)
 		);
 
-		if (bBlueprintVisible)
+		if (!BlueprintAccess.IsEmpty())
 		{
-			const bool bBlueprintReadOnly = PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_BlueprintReadOnly);
-			FString BlueprintAccess = TEXT("Read");
-			BlueprintAccess += ((bBlueprintReadOnly) ? TEXT(" Only") : TEXT("/Write"));
 			Member->AppendChildWithValueEscaped("blueprint_access", BlueprintAccess);
 		}
 
-		if (bEditInEditor)
+		if (!EditorAccess.IsEmpty())
 		{
-			const bool bEditTemplate = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnTemplate);
-			const bool bEditInstance = !PropertyIterator->HasAllPropertyFlags(EPropertyFlags::CPF_DisableEditOnInstance);
-
-			if (bEditTemplate || bEditInstance)
-			{
-				FString EditorAccess = TEXT("Anywhere");
-				if (!bEditTemplate)
-					EditorAccess = TEXT("Instance Only");
-				if (!bEditInstance)
-					EditorAccess = TEXT("Defaults Only");
-
-				Member->AppendChildWithValueEscaped("editor_access", EditorAccess);
-			}
+			Member->AppendChildWithValueEscaped("editor_access", EditorAccess);
 		}
 
 		if (bDeprecated)

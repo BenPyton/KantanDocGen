@@ -53,6 +53,11 @@ public:
 	static FString GetObjectNativeness(const UObject* Object);
 	static bool IsBlueprintable(const UField* Field);
 	static bool IsBlueprintType(const UField* Field);
+	static FString GetPropertyBlueprintAccess(const FProperty* Property, bool& bOutRead, bool& bOutWrite);
+	static FString GetPropertyEditorAccess(const FProperty* Property, bool& bOutEditable, bool& bOutTemplate, bool& bOutInstance);
+
+	static FString GetNodeImgName(const UEdGraphNode* Node);
+	static FString GetNodeDirectory(const UEdGraphNode* Node);
 
 	// Get a child node of a DocTreeNode, creating it if necessary if bCreate is true.
 	static TSharedPtr<DocTreeNode> GetChildNode(TSharedPtr<DocTreeNode> Parent, const FString& ChildName, bool bCreate = false);

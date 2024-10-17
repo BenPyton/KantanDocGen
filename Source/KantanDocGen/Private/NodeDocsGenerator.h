@@ -50,18 +50,22 @@ public:
 	/** Callable from background thread */
 	bool GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingState& State);
 	bool GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState& State);
+	bool GenerateVariableDocTree(UK2Node_Variable* Node, FNodeProcessingState& State);
 	bool GenerateTypeMembers(UObject* Type);
 	/**/
 
 protected:
 	void CleanUp();
+	bool SaveVariableDocFile(FString const& OutDir);
 
 	// @TODO: Move it in a FDocFile for K2Node class?
 	bool UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree, UEdGraphNode* Node);
-	
+	bool UpdateClassDocWithVariable(TSharedPtr<DocTreeNode> DocTree, UK2Node_Variable* Node);
+
 	static void AdjustNodeForSnapshot(UEdGraphNode* Node);
 	static UClass* MapToAssociatedClass(UK2Node* NodeInst, UObject* Source);
 	static bool IsSpawnerDocumentable(UBlueprintNodeSpawner* Spawner, bool bIsBlueprint);
+	static bool ShouldNodeGenerateImage(const UEdGraphNode* Node);
 
 	template <typename T UE_REQUIRES(TIsDerivedFrom<T, FDocFile>::IsDerived)>
 	TSharedPtr<T> CreateDocFile(TWeakPtr<FDocFile> Parent = nullptr)
@@ -79,6 +83,8 @@ protected:
 		return StaticCastSharedPtr<T>(DocFiles[InstanceType]);
 	}
 
+	TSharedPtr<DocTreeNode> GetVariableDocTree(const FString& VariableId, bool& bFound, bool bCreate = false);
+
 protected:
 	TWeakObjectPtr< UBlueprint > DummyBP;
 	TWeakObjectPtr< UEdGraph > Graph;
@@ -86,6 +92,8 @@ protected:
 
 	FString DocsTitle;
 	TSharedPtr<DocTreeNode> IndexTree;
+	// @TODO: use an FDocFile instead, but find a way to retrieve class id for saving files
+	TMap<FString, TSharedPtr<DocTreeNode>> VariableDocTreeMap;
 	TArray<UDocGenOutputFormatFactoryBase*> OutputFormats;
 	FString OutputDir;
 	bool SaveAllFormats(FString const& OutDir, TSharedPtr<DocTreeNode> Document){ return false; };
