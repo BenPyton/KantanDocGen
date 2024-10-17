@@ -6,6 +6,7 @@
 	>
 	
 	<xsl:key name="class-by-id" match="class" use="id" />
+	<xsl:key name="variable-by-id" match="variable" use="id" />
 
 	<!-- Notify file transformation -->
 	<xsl:template name="notification">
@@ -44,7 +45,23 @@
 	<!-- Template for the property row -->
 	<xsl:template match="property|field">
 		<xsl:text>| </xsl:text>
-		<xsl:apply-templates select="display_name"/>
+		<xsl:choose>
+			<xsl:when test="../../variables and key('variable-by-id', name, ../../variables)">
+				<xsl:call-template name="link">
+					<xsl:with-param name="name" select="display_name"/>
+					<xsl:with-param name="href">
+						<xsl:text>Variables/</xsl:text>
+						<xsl:value-of select="name"/>
+						<xsl:text>/</xsl:text>
+						<xsl:value-of select="name"/>
+						<xsl:text>.md</xsl:text>
+					</xsl:with-param>
+				</xsl:call-template>
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:apply-templates select="display_name"/>
+			</xsl:otherwise>
+		</xsl:choose>
 		<xsl:if test="inheritedFrom">
 			<xsl:text>&lt;br/&gt;(inherited from </xsl:text>
 			<xsl:apply-templates select="inheritedFrom/display_name"/>
@@ -60,6 +77,37 @@
 			<xsl:text>&lt;br/&gt;</xsl:text>
 		</xsl:if>
 		<xsl:apply-templates select="editor_access"/>
+		<xsl:text> | </xsl:text>
+		<xsl:apply-templates select="description"/>
+		<xsl:text> |&#xA;</xsl:text>
+	</xsl:template>
+
+	<!-- Template for the event table -->
+	<xsl:template match="events">
+		<xsl:param name="name"/>
+		<xsl:text>&#xA;## </xsl:text>
+		<xsl:value-of select="if ($name) then $name else 'Events'"/>
+		<xsl:text>&#xA;&#xA;</xsl:text>
+		<xsl:text>| Name | Category | Description |&#xA;</xsl:text>
+		<xsl:text>| ---- | -------- | ----------- |&#xA;</xsl:text>
+		<xsl:apply-templates select="event[not(inheritedFrom) or key('class-by-id', inheritedFrom/id, document('../../index.xml',.))]">
+			<xsl:sort select="inheritedFrom/id"/>
+			<xsl:sort select="category"/>
+			<xsl:sort select="display_name"/>
+		</xsl:apply-templates>
+	</xsl:template>
+
+	<!-- Template for the event row -->
+	<xsl:template match="event">
+		<xsl:text>| </xsl:text>
+		<xsl:apply-templates select="display_name"/>
+		<xsl:if test="inheritedFrom">
+			<xsl:text>&lt;br/&gt;(inherited from </xsl:text>
+			<xsl:apply-templates select="inheritedFrom/display_name"/>
+			<xsl:text>)</xsl:text>
+		</xsl:if>
+		<xsl:text> | </xsl:text>
+		<xsl:value-of select="my:no_wrap(my:multiline(category))"/>
 		<xsl:text> | </xsl:text>
 		<xsl:apply-templates select="description"/>
 		<xsl:text> |&#xA;</xsl:text>
@@ -109,7 +157,7 @@
 	<xsl:template name="title">
 		<xsl:param name="title"/>
 		<xsl:text>&#xA;# </xsl:text><xsl:value-of select="$title"/>
-		<xsl:text>&#xA;&#xA;</xsl:text>
+		<xsl:text>&#xA;</xsl:text>
 	</xsl:template>
 	
 	<!-- Template to create a link in markdown -->

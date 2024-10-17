@@ -55,32 +55,36 @@
 		</xsl:call-template>
 		
 		<!-- Details -->
-		<xsl:text>&#xA;## Class Details&#xA;</xsl:text>
+		<xsl:text>&#xA;## Class Details&#xA;&#xA;</xsl:text>
 		
 		<xsl:apply-templates select="sourcepath"/>
-		<xsl:if test='sourcepath and classTree'>
+		<xsl:if test='sourcepath'>
 			<xsl:text>\&#xA;</xsl:text>
 		</xsl:if>
 		<xsl:apply-templates select="classTree"/>
-		<xsl:if test='(sourcepath or classTree) and interfaces'>
+		<xsl:if test='classTree'>
 			<xsl:text>\&#xA;</xsl:text>
 		</xsl:if>
 		<xsl:apply-templates select="interfaces"/>
+		<xsl:if test='interfaces'>
+			<xsl:text>\&#xA;</xsl:text>
+		</xsl:if>
 		
 		<xsl:if test="blueprint_type = 'true' or blueprintable = 'true'">
-			<xsl:text>\&#xA;**Exposed in blueprint as:** </xsl:text>
+			<xsl:text>**Exposed in blueprint as:** </xsl:text>
 			<xsl:apply-templates select="blueprintable"/>
 			<xsl:if test="blueprint_type = 'true' and blueprintable = 'true'">
 				<xsl:text> | </xsl:text>
 			</xsl:if>
 			<xsl:apply-templates select="blueprint_type"/>
+			<xsl:text>&#xA;</xsl:text>
 		</xsl:if>
-		
-		<xsl:text>&#xA;&#xA;</xsl:text>
+
+		<!-- Description -->
 		<xsl:apply-templates select="description"/>
-		<xsl:text>&#xA;</xsl:text>
-		
+
 		<!-- Tables -->
+		<xsl:apply-templates select="events"/>
 		<xsl:apply-templates select="properties | fields"/>
 		<xsl:apply-templates select="nodes"/>
 		<xsl:apply-templates select="values"/>

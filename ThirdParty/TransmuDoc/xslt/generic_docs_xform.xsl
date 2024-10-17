@@ -13,6 +13,7 @@
 	<xsl:import href="index_xform.xsl"/>
 	<xsl:import href="class_docs_xform.xsl"/>
 	<xsl:import href="node_docs_xform.xsl"/>
+	<xsl:import href="var_docs_xform.xsl"/>
 	<xsl:import href="docusaurus.xsl"/>
 	
 	<!-- Choose the correct doc xsl based on the doctype -->

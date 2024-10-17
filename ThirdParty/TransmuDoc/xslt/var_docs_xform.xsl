@@ -19,15 +19,15 @@
 	</xsl:template>
 	
 	<!-- Template to match automatically based on doc_type -->
-	<xsl:template match="root[doctype='node']">
+	<xsl:template match="root[doctype='variable']">
 		<xsl:apply-templates select="doctype">
-			<xsl:with-param name="expected" select="'node'"/>
+			<xsl:with-param name="expected" select="'variable'"/>
 		</xsl:apply-templates>
-		<xsl:call-template name="node_doc"/>
+		<xsl:call-template name="var_doc"/>
 	</xsl:template>
 	
 	<!-- Template to create a node file -->
-	<xsl:template name="node_doc">
+	<xsl:template name="var_doc">
 		<xsl:call-template name="notification"/>
 		
 		<xsl:call-template name="frontmatter">
@@ -53,14 +53,14 @@
 					<xsl:value-of select="class_name"/>
 				</item>
 				<item>
-					<xsl:value-of select="shorttitle"/>
+					<xsl:value-of select="display_name"/>
 				</item>
 			</xsl:with-param>
 		</xsl:call-template>
 		
 		<!-- Title of the wiki page -->
 		<xsl:call-template name="title">
-			<xsl:with-param name="title" select="shorttitle"/>
+			<xsl:with-param name="title" select="display_name"/>
 		</xsl:call-template>
 		
 		<!-- Details -->
@@ -74,54 +74,35 @@
 		</xsl:call-template>
 		<xsl:text>\&#xA;**Category:** </xsl:text>
 		<xsl:apply-templates select="my:no_wrap(my:oneline(category))"/>
+		<xsl:text>\&#xA;**Type:** </xsl:text>
+		<xsl:apply-templates select="my:no_wrap(my:oneline(variable_type))"/>
+		<xsl:if test="editor_access">
+			<xsl:text>\&#xA;**Editor Access:** </xsl:text>
+			<xsl:apply-templates select="my:no_wrap(my:oneline(editor_access))"/>
+		</xsl:if>
+		<xsl:if test="blueprint_access">
+			<xsl:text>\&#xA;**Blueprint Access:** </xsl:text>
+			<xsl:apply-templates select="my:no_wrap(my:oneline(blueprint_access))"/>
+		</xsl:if>
 		<xsl:text>&#xA;</xsl:text>
+		
 		<xsl:apply-templates select="description"/>
 		
-		<xsl:text>&#xA;Node&#xA;&#xA;</xsl:text>
-		<xsl:call-template name="image">
-			<xsl:with-param name="href" select="imgpath"/>
-		</xsl:call-template>
-		<xsl:text>&#xA;&#xA;</xsl:text>
-
-		<xsl:text>C++&#xA;</xsl:text>
-		<xsl:apply-templates select="rawsignature"/>
-		
-		<xsl:apply-templates select="inputs"/>
-		<xsl:apply-templates select="outputs"/>
-	</xsl:template>
-	
-	<!-- Template for the input table -->
-	<xsl:template match="inputs">
-		<xsl:text>&#xA;## Inputs&#xA;&#xA;</xsl:text>
-		<xsl:text>| Name | Type | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
-		<xsl:apply-templates select="param"/>
-	</xsl:template>
-	
-	<!-- Template for the output table -->
-	<xsl:template match="outputs">
-		<xsl:text>&#xA;## Outputs&#xA;&#xA;</xsl:text>
-		<xsl:text>| Name | Type | Description |&#xA;</xsl:text>
-		<xsl:text>| ---- | ---- | ----------- |&#xA;</xsl:text>
-		<xsl:apply-templates select="param"/>
-	</xsl:template>
-	
-	<!-- Template for a param row -->
-	<xsl:template match="param">
-		<xsl:text>| </xsl:text>
-		<xsl:value-of select="name"/>
-		<xsl:text> | </xsl:text>
-		<xsl:value-of select="type"/>
-		<xsl:text> | </xsl:text>
-		<xsl:apply-templates select="description"/>
-		<xsl:text> |&#xA;</xsl:text>
-	</xsl:template>
-	
-	<!-- Template for the C++ function signature -->
-	<xsl:template match="rawsignature">
-		<xsl:text>&#xA;```cpp&#xA;</xsl:text>
-		<xsl:value-of select="."/>
-		<xsl:text>&#xA;```&#xA;</xsl:text>
+		<xsl:text>&#xA;#### Nodes&#xA;&#xA;</xsl:text>
+		<xsl:if test="imgpath_get">
+			<xsl:call-template name="image">
+				<xsl:with-param name="href" select="imgpath_get"/>
+			</xsl:call-template>
+		</xsl:if>
+		<xsl:if test="imgpath_get and imgpath_set">
+			<xsl:text> </xsl:text>
+		</xsl:if>
+		<xsl:if test="imgpath_set">
+			<xsl:call-template name="image">
+				<xsl:with-param name="href" select="imgpath_set"/>
+			</xsl:call-template>
+		</xsl:if>
+		<xsl:text>&#xA;</xsl:text>
 	</xsl:template>
 	
 	<!-- Unwanted elements (can use "a | b | c") -->
