@@ -40,7 +40,7 @@ bool FStructDocFile::GenerateTypeMembers(UScriptStruct* Struct)
 		const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(Struct, StructDocTree);
 		if (bHasComment == false)
 		{
-			FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UScriptStruct: %s"), *Struct->GetName()));
+			FDocGenHelper::PrintWarning(FString::Printf(TEXT("No description for UScriptStruct: %s"), *Struct->GetName()));
 		}
 
 		const bool bIsBlueprintType = FDocGenHelper::IsBlueprintType(Struct);

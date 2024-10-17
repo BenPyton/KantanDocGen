@@ -44,7 +44,7 @@ bool FEnumDocFile::GenerateTypeMembers(UEnum* EnumInstance)
 	const bool bHasComment = FDocGenHelper::GenerateDoxygenNode(EnumInstance, EnumDocTree);
 	if (bHasComment == false)
 	{
-		FDocGenHelper::PrintWarning(FString::Printf(TEXT("Warning in UEnum: %s"), *EnumInstance->GetName()));
+		FDocGenHelper::PrintWarning(FString::Printf(TEXT("No description for UEnum: %s"), *EnumInstance->GetName()));
 	}
 
 	bool bShouldBeDocumented = FDocGenHelper::IsBlueprintType(EnumInstance);
