@@ -21,6 +21,7 @@
 #include "HighResScreenshot.h"
 #include "K2Node_DynamicCast.h"
 #include "K2Node_Message.h"
+#include "K2Node_ComponentBoundEvent.h"
 #include "KantanDocGenLog.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -35,10 +36,12 @@
 #include "TextureResource.h"
 #include "ThreadingHelpers.h"
 #include "BlueprintVariableNodeSpawner.h"
+#include "BlueprintDelegateNodeSpawner.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_Variable.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
+#include "BlueprintBoundEventNodeSpawner.h"
 #include "DocGenHelper.h"
 #include "DocFiles/ClassDocFile.h"
 #include "DocFiles/StructDocFile.h"
@@ -100,7 +103,39 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	}
 
 	// Spawn an instance into the graph
-	auto NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet {}, FVector2D(0, 0));
+	UEdGraphNode* NodeInst = nullptr;
+	if (Spawner->IsA<UBlueprintBoundEventNodeSpawner>())
+	{
+		UBlueprintBoundEventNodeSpawner* BlueprintBoundEventNodeSpawner = Cast<UBlueprintBoundEventNodeSpawner>(Spawner);
+
+		//FMulticastDelegateProperty const* DelegateProperty = BlueprintBoundEventNodeSpawner->GetEventDelegate();
+		//
+		//// Create a new event node
+		//NodeInst = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_ComponentBoundEvent>(
+		//	Graph.Get(),
+		//	FVector2D(0, 0),
+		//	EK2NewNodeFlags::SelectNewNode,
+		//	[DelegateProperty](UK2Node_ComponentBoundEvent* NewInstance)
+		//	{
+		//		UClass* ComponentOwnerClass = DelegateProperty->GetOwnerClass();
+		//		NewInstance->ComponentPropertyName = ComponentOwnerClass->GetFName();
+		//		NewInstance->DelegatePropertyName = DelegateProperty->GetFName();
+		//		NewInstance->DelegateOwnerClass = CastChecked<UClass>(DelegateProperty->GetOwner<UObject>())->GetAuthoritativeClass();
+		//
+		//		NewInstance->EventReference.SetFromField<UFunction>(DelegateProperty->SignatureFunction, /*bIsConsideredSelfContext =*/false);
+		//
+		//		NewInstance->CustomFunctionName = FName(*FString::Printf(TEXT("BndEvt__%s_%s_%s_%s"), *NewInstance->GetBlueprint()->GetName(), *DelegateProperty->GetName(), *NewInstance->GetName(), *NewInstance->EventReference.GetMemberName().ToString()));
+		//		NewInstance->bOverrideFunction = false;
+		//		NewInstance->bInternalEvent = true;
+		//	}
+		//);
+
+		NodeInst = BlueprintBoundEventNodeSpawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet{}, FVector2D(0, 0));
+	}
+	else
+	{
+		NodeInst = Spawner->Invoke(Graph.Get(), IBlueprintNodeBinder::FBindingSet{}, FVector2D(0, 0));
+	}
 
 	// Currently Blueprint nodes only
 	const auto K2NodeInst = Cast< UK2Node >(NodeInst);
