@@ -429,10 +429,13 @@ bool FNodeDocsGenerator::GenerateVariableDocTree(UK2Node_Variable* Node, FNodePr
 	// @TODO: Use FDocFile to align with the class/struct/enum/index files (@see SaveVariableDocFile function)
 	//TSharedPtr<DocTreeNode> VarDocTree = GetDocFile<FVariableDocFile>()->GetDocTree(Node, /*bCreate = */true);
 
-	if (Node->IsA<UK2Node_VariableGet>())
-		VarDocFile->AppendChildWithValueEscaped("imgpath_get", State.RelImageBasePath / State.ImageFilename);
-	else if (Node->IsA<UK2Node_VariableSet>())
-		VarDocFile->AppendChildWithValueEscaped("imgpath_set", State.RelImageBasePath / State.ImageFilename);
+	if (!State.ImageFilename.IsEmpty())
+	{
+		if (Node->IsA<UK2Node_VariableGet>())
+			VarDocFile->AppendChildWithValueEscaped("imgpath_get", State.RelImageBasePath / State.ImageFilename);
+		else if (Node->IsA<UK2Node_VariableSet>())
+			VarDocFile->AppendChildWithValueEscaped("imgpath_set", State.RelImageBasePath / State.ImageFilename);
+	}
 
 	// @TODO: Once the FDocFile is used, the init below should be done during the GetVariableDocTree above when creating the file.
 	// So this condition should be removed too.
@@ -449,6 +452,7 @@ bool FNodeDocsGenerator::GenerateVariableDocTree(UK2Node_Variable* Node, FNodePr
 	VarDocFile->AppendChildWithValueEscaped(TEXT("docs_name"), DocsTitle);
 	VarDocFile->AppendChildWithValueEscaped(TEXT("class_id"), State.ClassDocTree->FindChildByName("id")->GetValue());
 	VarDocFile->AppendChildWithValueEscaped(TEXT("class_name"), State.ClassDocTree->FindChildByName("display_name")->GetValue());
+	VarDocFile->AppendChildWithValueEscaped(TEXT("id"), Property->GetAuthoredName());
 	VarDocFile->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Property));
 	VarDocFile->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Property));
 	VarDocFile->AppendChildWithValueEscaped(TEXT("category"), FDocGenHelper::GetCategory(Property));
