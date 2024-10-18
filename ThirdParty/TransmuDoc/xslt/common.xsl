@@ -50,7 +50,7 @@
 				<xsl:call-template name="link">
 					<xsl:with-param name="name" select="display_name"/>
 					<xsl:with-param name="href">
-						<xsl:text>Variables/</xsl:text>
+						<xsl:text>./Variables/</xsl:text>
 						<xsl:value-of select="name"/>
 						<xsl:text>/</xsl:text>
 						<xsl:value-of select="name"/>

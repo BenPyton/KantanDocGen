@@ -35,7 +35,7 @@
 				<xsl:text>/api/</xsl:text>
 				<xsl:value-of select="class_id"/>
 				<xsl:text>/</xsl:text>
-				<xsl:value-of select="funcname"/>
+				<xsl:value-of select="id"/>
 			</xsl:with-param>
 		</xsl:call-template>
 		
