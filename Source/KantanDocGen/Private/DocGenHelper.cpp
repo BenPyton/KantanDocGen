@@ -196,8 +196,9 @@ FString FDocGenHelper::GetDescription(const UField* Field, bool bShortDescriptio
 	check(Field);
 	if (const UClass* Class = Cast<UClass>(Field))
 	{
-		if (!bShortDescription && Class->HasAllClassFlags(CLASS_Interface))
-			return "*UInterface cannot be documented*";
+		// Forces short description for interfaces
+		if (Class->HasAllClassFlags(CLASS_Interface))
+			bShortDescription = true;
 	}
 
 	FString Description = Field->GetToolTipText(bShortDescription).ToString();

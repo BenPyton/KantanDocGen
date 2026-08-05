@@ -6,6 +6,7 @@
 
 #include "ClassDocFile.h"
 #include "DocTreeNode.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 namespace
 {
@@ -13,6 +14,13 @@ namespace
 	{
 		check(Class);
 		return Class->HasAnyClassFlags(EClassFlags::CLASS_Hidden);
+	}
+
+	bool IsInterfaceDocumentable(const FImplementedInterface& Interface)
+	{
+		const bool bIsDocumentable = Interface.Class->HasMetaData(TEXT("Documentable"));
+		const bool bIsImplementableInterface = FKismetEditorUtilities::IsClassABlueprintImplementableInterface(Interface.Class);
+		return bIsDocumentable || bIsImplementableInterface;
 	}
 }
 
@@ -34,6 +42,9 @@ bool FClassDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UClass* Class) 
 		auto DocTreeInterfaceList = DocTree->AppendChild("interfaces");
 		for (const auto& Interface : Class->Interfaces)
 		{
+			if (!IsInterfaceDocumentable(Interface))
+				continue;
+
 			auto DocTreeInterface = DocTreeInterfaceList->AppendChild("interface");
 			DocTreeInterface->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Interface.Class));
 			DocTreeInterface->AppendChildWithValueEscaped(TEXT("display_name"), FDocGenHelper::GetDisplayName(Interface.Class));

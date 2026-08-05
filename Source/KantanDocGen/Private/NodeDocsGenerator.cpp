@@ -81,10 +81,8 @@ bool FNodeDocsGenerator::GT_Init(FString const& InDocsTitle, FString const& InOu
 
 	DocsTitle = InDocsTitle;
 
-	//IndexTree = IndexDoc.CreateDocTree(DocsTitle);
 	GetDocFile<FIndexDocFile>()->CreateDocTree(DocsTitle);
 
-	//ClassDoc.Clear();
 	GetDocFile<FClassDocFile>()->Clear();
 	OutputDir = InOutputDir;
 
@@ -120,7 +118,6 @@ UK2Node* FNodeDocsGenerator::GT_InitializeForSpawner(UBlueprintNodeSpawner* Spaw
 	}
 
 	// Create the class doc tree if necessary.
-	//TSharedPtr<DocTreeNode> ClassDocTree = ClassDoc.GetDocTree(AssociatedClass, /*bCreate = */true);
 	TSharedPtr<DocTreeNode> ClassDocTree = GetDocFile<FClassDocFile>()->GetDocTree(AssociatedClass, /*bCreate = */true);
 
 	const FString ClassID = FDocGenHelper::GetDocId(AssociatedClass);
