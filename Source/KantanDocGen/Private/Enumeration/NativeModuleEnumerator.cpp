@@ -9,6 +9,7 @@
 #include "UObject/Package.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UnrealType.h"
+#include "Misc/EngineVersionComparison.h"
 
 FNativeModuleEnumerator::FNativeModuleEnumerator(FName const& InModuleName)
 {
@@ -88,7 +89,11 @@ void FNativeModuleEnumerator::Prepass(FName const& ModuleName)
 	};
 
 	// Enumerate all objects in the package
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
 	ForEachObjectWithOuter(Package, ObjectEnumFtr, true /* Include nested */);
+#else
+	ForEachObjectWithOuter(Package, ObjectEnumFtr, EGetObjectsFlags::IncludeNestedObjects);
+#endif
 }
 
 UObject* FNativeModuleEnumerator::GetNext()

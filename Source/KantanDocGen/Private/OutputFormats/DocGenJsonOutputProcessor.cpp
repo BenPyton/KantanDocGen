@@ -121,6 +121,8 @@ TSharedPtr<FJsonObject> DocGenJsonOutputProcessor::ParseNodeFile(const FString& 
 }
 TSharedPtr<FJsonObject> DocGenJsonOutputProcessor::ParseStructFile(const FString& StructFilePath)
 {
+	static const FString IdFieldName(TEXT("id"));
+
 	TSharedPtr<FJsonObject> ParsedStruct = LoadFileToJson(StructFilePath);
 	if (!ParsedStruct)
 	{
@@ -129,7 +131,7 @@ TSharedPtr<FJsonObject> DocGenJsonOutputProcessor::ParseStructFile(const FString
 
 	TSharedPtr<FJsonObject> OutNode = MakeShared<FJsonObject>();
 	// Reusing the class template for now so renaming id to class_id to be consistent
-	if (TSharedPtr<FJsonValue> Field = ParsedStruct->TryGetField("id"))
+	if (TSharedPtr<FJsonValue> Field = ParsedStruct->TryGetField(IdFieldName))
 	{
 		OutNode->SetField("class_id", Field);
 	}
@@ -410,10 +412,13 @@ EIntermediateProcessingResult DocGenJsonOutputProcessor::ConsolidateClasses(TSha
 			{
 				const FString NodeFilePath = IntermediateDir / ClassName / "nodes" / NodeName + ".json";
 
+				static const FString ImagePathFieldName(TEXT("imgpath"));
+				static const FString StaticFieldName(TEXT("static"));
+
 				if (TSharedPtr<FJsonObject> NodeJson = ParseNodeFile(NodeFilePath))
 				{
 					FString RelImagePath;
-					if (NodeJson->TryGetStringField("imgpath", RelImagePath))
+					if (NodeJson->TryGetStringField(ImagePathFieldName, RelImagePath))
 					{
 						FString SourceImagePath = IntermediateDir / ClassName / "nodes" / RelImagePath;
 						SourceImagePath =
@@ -422,7 +427,7 @@ EIntermediateProcessingResult DocGenJsonOutputProcessor::ConsolidateClasses(TSha
 												 *SourceImagePath, true);
 					}
 					bool FunctionIsStatic = false;
-					NodeJson->TryGetBoolField("static", FunctionIsStatic);
+					NodeJson->TryGetBoolField(StaticFieldName, FunctionIsStatic);
 
 					if (FunctionIsStatic)
 					{
