@@ -18,6 +18,7 @@
 #include "DoxygenParserHelpers.h"
 #include "EdGraphSchema_K2.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HighResScreenshot.h"
 #include "K2Node_DynamicCast.h"
 #include "K2Node_Message.h"
@@ -170,7 +171,6 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 {
 	SCOPE_SECONDS_COUNTER(GenerateNodeImageTime);
 
-	const FVector2D DrawSize(1024.0f, 1024.0f);
 
 	bool bSuccess = false;
 
@@ -185,27 +185,36 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 
 	TUniquePtr<TImagePixelData<FColor>> PixelData;
 
-	auto RenderNodeResult = Async(EAsyncExecution::TaskGraphMainThread, [this, Node, DrawSize, &Rect, &PixelData] {
+	auto RenderNodeResult = Async(EAsyncExecution::TaskGraphMainThread, [this, Node, &Rect, &PixelData] {
 		auto NodeWidget = FNodeFactory::CreateNodeWidget(Node);
 		NodeWidget->SetOwner(GraphPanel.ToSharedRef());
+
+		// Force a layout pass up front so GetDesiredSize() reflects the widget's natural size,
+		// then use that exact size as the render canvas below.
+		NodeWidget->SlatePrepass(FSlateApplicationBase::Get().GetApplicationScale());
+		const FVector2D Desired = NodeWidget->GetDesiredSize();
+		const FVector2D DrawSize(FMath::Max(Desired.X, 1.0f), FMath::Max(Desired.Y, 1.0f));
 
 		const bool bUseGammaCorrection = false;
 		FWidgetRenderer Renderer(false);
 		Renderer.SetIsPrepassNeeded(true);
 		auto RenderTarget = Renderer.DrawWidget(NodeWidget.ToSharedRef(), DrawSize);
-		auto Desired = NodeWidget->GetDesiredSize();
 #if UE_VERSION_NEWER_THAN(5, 0, 0)
 		FlushRenderingCommands();
 #else 
 		FlushRenderingCommands(true);
 #endif
 		FTextureRenderTargetResource* RTResource = RenderTarget->GameThread_GetRenderTargetResource();
-		Rect = FIntRect(0, 0, (int32) Desired.X, (int32) Desired.Y);
+
+		const int32 ImageWidth = (int32) DrawSize.X;
+		const int32 ImageHeight = (int32) DrawSize.Y;
+
+		Rect = FIntRect(0, 0, ImageWidth, ImageHeight);
 		FReadSurfaceDataFlags ReadPixelFlags(RCM_UNorm);
 		ReadPixelFlags.SetLinearToGamma(true); // @TODO: is this gamma correction, or something else?
 
-		PixelData = MakeUnique<TImagePixelData<FColor>>(FIntPoint((int32) Desired.X, (int32) Desired.Y));
-		PixelData->Pixels.SetNumUninitialized((int32) Desired.X * (int32) Desired.Y);
+		PixelData = MakeUnique<TImagePixelData<FColor>>(FIntPoint(ImageWidth, ImageHeight));
+		PixelData->Pixels.SetNumUninitialized(ImageWidth * ImageHeight);
 
 		if (RTResource->ReadPixelsPtr(PixelData->Pixels.GetData(), ReadPixelFlags, Rect) == false)
 		{

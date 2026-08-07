@@ -17,6 +17,7 @@ class UEdGraphNode;
 class UK2Node;
 class UBlueprintNodeSpawner;
 class FXmlFile;
+class FDocFile;
 
 class FNodeDocsGenerator
 {
