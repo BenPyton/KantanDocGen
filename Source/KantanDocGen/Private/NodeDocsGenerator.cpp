@@ -196,9 +196,21 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 		const FVector2D DrawSize(FMath::Max(Desired.X, 1.0f), FMath::Max(Desired.Y, 1.0f));
 
 		const bool bUseGammaCorrection = false;
-		FWidgetRenderer Renderer(false);
+		FWidgetRenderer Renderer(true);
 		Renderer.SetIsPrepassNeeded(true);
-		auto RenderTarget = Renderer.DrawWidget(NodeWidget.ToSharedRef(), DrawSize);
+
+		// Manually create the render target (bypassing FWidgetRenderer::CreateTargetFor) so we can set
+		// SRGB=true independently of the `true` passed to the FWidgetRenderer constructor above.
+		const EPixelFormat RequestedFormat = FSlateApplication::Get().GetRenderer()->GetSlateRecommendedColorFormat();
+		UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
+		RenderTarget->Filter = TF_Default;
+		RenderTarget->ClearColor = FLinearColor::Transparent;
+		RenderTarget->SRGB = true;
+		RenderTarget->TargetGamma = 1;
+		RenderTarget->InitCustomFormat(FMath::FloorToInt32(DrawSize.X), FMath::FloorToInt32(DrawSize.Y), RequestedFormat, /*bForceLinearGamma=*/true);
+		RenderTarget->UpdateResourceImmediate(true);
+
+		Renderer.DrawWidget(RenderTarget, NodeWidget.ToSharedRef(), DrawSize, 0.0f, false);
 #if UE_VERSION_NEWER_THAN(5, 0, 0)
 		FlushRenderingCommands();
 #else 
@@ -211,7 +223,7 @@ bool FNodeDocsGenerator::GenerateNodeImage(UEdGraphNode* Node, FNodeProcessingSt
 
 		Rect = FIntRect(0, 0, ImageWidth, ImageHeight);
 		FReadSurfaceDataFlags ReadPixelFlags(RCM_UNorm);
-		ReadPixelFlags.SetLinearToGamma(true); // @TODO: is this gamma correction, or something else?
+		ReadPixelFlags.SetLinearToGamma(true); // Seems to not do anything at all on rendered node
 
 		PixelData = MakeUnique<TImagePixelData<FColor>>(FIntPoint(ImageWidth, ImageHeight));
 		PixelData->Pixels.SetNumUninitialized(ImageWidth * ImageHeight);
