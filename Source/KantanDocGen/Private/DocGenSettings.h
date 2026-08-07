@@ -48,6 +48,10 @@ public:
 	UPROPERTY() // EditAnywhere, Category = "Class Search")
 	TArray<FName> ExcludedClasses;
 
+	// List of meta keys to include in the output. If empty, no meta keys will be included.
+	UPROPERTY(EditAnywhere, Category = "Output")
+	TArray<FName> CustomMetaKeys;
+
 	UPROPERTY(EditAnywhere, Category = "Output")
 	FDirectoryPath OutputDirectory;
 

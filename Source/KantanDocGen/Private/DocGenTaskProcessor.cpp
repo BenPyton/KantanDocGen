@@ -203,7 +203,7 @@ void FDocGenTaskProcessor::ProcessTask(TSharedPtr<FDocGenTask> InTask)
 	EnqueueEnumeratorsResult.Get();
 
 	// Initialize the doc generator
-	Current->DocGen = MakeUnique<FNodeDocsGenerator>(Current->Task->Settings.OutputFormats);
+	Current->DocGen = MakeUnique<FNodeDocsGenerator>(Current->Task->Settings.OutputFormats, Current->Task->Settings.CustomMetaKeys);
 
 	auto InitDocGenResult = Async(
 		EAsyncExecution::TaskGraphMainThread, [GameThread_InitDocGen, Current = this->Current, IntermediateDir]() {

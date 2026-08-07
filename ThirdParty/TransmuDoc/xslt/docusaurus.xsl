@@ -15,6 +15,7 @@
 		<xsl:param name="description" as="xs:string?"/>
 		<xsl:param name="sidebar" as="xs:string?"/>
 		<xsl:param name="css-class" as="xs:string?"/>
+		<xsl:param name="custom-fields" as="node()*"/>
 		<xsl:text>---</xsl:text>
 		<xsl:if test="$docid">
 			<xsl:text>&#xA;id: </xsl:text><xsl:value-of select="$docid"/>
@@ -36,6 +37,14 @@
 		</xsl:if>
 		<xsl:if test="$css-class">
 			<xsl:text>&#xA;sidebar_class_name: </xsl:text><xsl:value-of select="$css-class"/>
+		</xsl:if>
+		<xsl:if test="$custom-fields">
+			<xsl:for-each select="$custom-fields">
+				<xsl:text>&#xA;</xsl:text>
+				<xsl:value-of select="lower-case((name | @name)[1])"/>
+				<xsl:text>: </xsl:text>
+				<xsl:value-of select="(value | @value)[1]"/>
+			</xsl:for-each>
 		</xsl:if>
 		<xsl:text>&#xA;---&#xA;&#xA;</xsl:text>
 	</xsl:template>

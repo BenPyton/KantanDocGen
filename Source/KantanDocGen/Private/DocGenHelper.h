@@ -72,6 +72,10 @@ public:
 	static bool GenerateParamNode(const UEdGraphPin* Pin, TSharedPtr<DocTreeNode> ParentNode);
 	static bool GenerateInheritanceNode(const FField* Field, const UField* Parent, TSharedPtr<DocTreeNode> ParentNode);
 
+	// Look up each of the given MetaKeys on Field, and for each one present, append it (name + value) as an
+	// "entry" child of a "meta" node under ParentNode. Returns true if at least one meta key was found.
+	static bool GenerateCustomMetaNode(const UField* Field, const TArray<FName>& MetaKeys, TSharedPtr<DocTreeNode> ParentNode);
+
 	// DocId for any UObject derived class.
 	static FString GetDocId(const UObject* Object);
 

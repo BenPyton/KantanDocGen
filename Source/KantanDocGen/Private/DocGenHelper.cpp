@@ -585,6 +585,36 @@ bool FDocGenHelper::GenerateInheritanceNode(const FField* Field, const UField* P
 	return bInherited;
 }
 
+bool FDocGenHelper::GenerateCustomMetaNode(const UField* Field, const TArray<FName>& MetaKeys, TSharedPtr<DocTreeNode> ParentNode)
+{
+	check(Field && ParentNode.IsValid());
+
+	TSharedPtr<DocTreeNode> MetaList = nullptr;
+	bool bHasAnyMeta = false;
+	for (const FName& MetaKey : MetaKeys)
+	{
+		if (MetaKey.IsNone())
+			continue;
+
+		if (!Field->HasMetaData(MetaKey))
+			continue;
+
+		if (!MetaList.IsValid())
+		{
+			MetaList = FDocGenHelper::GetChildNode(ParentNode, TEXT("meta"), /*bCreate = */true);
+		}
+
+		const FString& MetaValue = Field->GetMetaData(MetaKey);
+
+		auto Entry = MetaList->AppendChild(TEXT("entry"));
+		Entry->AppendChildWithValueEscaped(TEXT("name"), MetaKey.ToString());
+		Entry->AppendChildWithValueEscaped(TEXT("value"), MetaValue.IsEmpty() ? TEXT("true") : MetaValue);
+		bHasAnyMeta = true;
+	}
+
+	return bHasAnyMeta;
+}
+
 // DocId for any UObject derived class.
 FString FDocGenHelper::GetDocId(const UObject* Object)
 {

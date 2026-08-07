@@ -17,6 +17,7 @@ bool FStructDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UScriptStruct*
 	DocTree->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Struct));
 	DocTree->AppendChildWithValueEscaped(TEXT("classTree"), FDocGenHelper::GetTypeHierarchy(Struct));
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Struct)));
+	FDocGenHelper::GenerateCustomMetaNode(Struct, CustomMetaKeys, DocTree);
 	return true;
 }
 

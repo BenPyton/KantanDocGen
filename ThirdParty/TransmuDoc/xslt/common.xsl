@@ -151,6 +151,7 @@
 		<xsl:param name="sidebar" as="xs:integer?"/>
 		<xsl:param name="description" as="xs:integer?"/>
 		<xsl:param name="css-class" as="xs:string?"/>
+		<xsl:param name="custom-fields" as="node()*"/>
 	</xsl:template>
 	
 	<!-- Template to create a title in markdown -->

@@ -35,7 +35,12 @@
 	<xsl:template name="class_doc">
 		<xsl:call-template name="notification"/>
 		
-		<!-- @TODO: Adding frontmatter ? -->
+		<!-- frontmatter only if there are meta entries -->
+		<xsl:if test='meta'>
+			<xsl:call-template name="frontmatter">
+				<xsl:with-param name="custom-fields" select="meta/entry"/>
+			</xsl:call-template>
+		</xsl:if>
 		
 		<!-- Breadcrumb -->
 		<xsl:call-template name="breadcrumb">

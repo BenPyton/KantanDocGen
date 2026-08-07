@@ -36,6 +36,7 @@ bool FClassDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UClass* Class) 
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Class)));
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprintable"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintable(Class)));
 	DocTree->AppendChildWithValueEscaped(TEXT("abstract"), FDocGenHelper::GetBoolString(Class->GetBoolMetaData(TEXT("Abstract"))));
+	FDocGenHelper::GenerateCustomMetaNode(Class, CustomMetaKeys, DocTree);
 
 	if (!Class->Interfaces.IsEmpty())
 	{

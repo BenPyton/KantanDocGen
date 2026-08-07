@@ -22,7 +22,7 @@ class FDocFile;
 class FNodeDocsGenerator
 {
 public:
-	FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats);
+	FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats, const TArray<FName>& CustomMetaKeys);
 	~FNodeDocsGenerator();
 
 public:

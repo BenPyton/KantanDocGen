@@ -46,13 +46,17 @@
 #include "DocFiles/EnumDocFile.h"
 #include "DocFiles/IndexDocFile.h"
 
-FNodeDocsGenerator::FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats)
+FNodeDocsGenerator::FNodeDocsGenerator(const TArray<class UDocGenOutputFormatFactoryBase*>& OutputFormats, const TArray<FName>& CustomMetaKeys)
 	: OutputFormats(OutputFormats)
 {
 	auto IndexDoc = CreateDocFile<FIndexDocFile>();
-	CreateDocFile<FClassDocFile>(IndexDoc);
-	CreateDocFile<FStructDocFile>(IndexDoc);
-	CreateDocFile<FEnumDocFile>(IndexDoc);
+	auto ClassDoc = CreateDocFile<FClassDocFile>(IndexDoc);
+	auto StructDoc = CreateDocFile<FStructDocFile>(IndexDoc);
+	auto EnumDoc = CreateDocFile<FEnumDocFile>(IndexDoc);
+
+	ClassDoc->SetCustomMetaKeys(CustomMetaKeys);
+	StructDoc->SetCustomMetaKeys(CustomMetaKeys);
+	EnumDoc->SetCustomMetaKeys(CustomMetaKeys);
 }
 
 FNodeDocsGenerator::~FNodeDocsGenerator()

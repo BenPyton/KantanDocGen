@@ -30,6 +30,13 @@ public:
 
 	virtual bool GenerateTypeMembers(UObject* Instance) = 0;
 
+	// List of UCLASS/USTRUCT/UENUM meta keys (e.g. "Premium") to look up on documented types and expose
+	// in the generated doc tree, so they can end up in the output frontmatter.
+	void SetCustomMetaKeys(const TArray<FName>& InMetaKeys) { CustomMetaKeys = InMetaKeys; }
+
+protected:
+	TArray<FName> CustomMetaKeys;
+
 private:
 	TWeakPtr<FDocFile> ParentFile {nullptr};
 };

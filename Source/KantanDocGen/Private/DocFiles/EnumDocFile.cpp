@@ -16,6 +16,7 @@ bool FEnumDocFile::InitDocTree(TSharedPtr<DocTreeNode> DocTree, UEnum* Enum) con
 	DocTree->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetDescription(Enum));
 	DocTree->AppendChildWithValueEscaped(TEXT("sourcepath"), FDocGenHelper::GetSourcePath(Enum));
 	DocTree->AppendChildWithValueEscaped(TEXT("blueprint_type"), FDocGenHelper::GetBoolString(FDocGenHelper::IsBlueprintType(Enum)));
+	FDocGenHelper::GenerateCustomMetaNode(Enum, CustomMetaKeys, DocTree);
 	return true;
 }
 
