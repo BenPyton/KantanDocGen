@@ -125,7 +125,7 @@
 		<xsl:text>| ---- | -------- | ----------- |&#xA;</xsl:text>
 		<xsl:apply-templates select="node">
 			<xsl:sort select="category"/>
-			<xsl:sort select="shorttitle"/>
+			<xsl:sort select="fulltitle"/>
 		</xsl:apply-templates>
 	</xsl:template>
 	
@@ -133,7 +133,7 @@
 	<xsl:template match="node">
 		<xsl:text>| </xsl:text>
 		<xsl:call-template name="link">
-			<xsl:with-param name="name" select="shorttitle"/>
+			<xsl:with-param name="name" select="fulltitle"/>
 			<xsl:with-param name="href">
 				<xsl:text>./Nodes/</xsl:text>
 				<xsl:value-of select="id"/>

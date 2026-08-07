@@ -53,14 +53,14 @@
 					<xsl:value-of select="class_name"/>
 				</item>
 				<item>
-					<xsl:value-of select="shorttitle"/>
+					<xsl:value-of select="fulltitle"/>
 				</item>
 			</xsl:with-param>
 		</xsl:call-template>
 		
 		<!-- Title of the wiki page -->
 		<xsl:call-template name="title">
-			<xsl:with-param name="title" select="shorttitle"/>
+			<xsl:with-param name="title" select="fulltitle"/>
 		</xsl:call-template>
 		
 		<!-- Details -->

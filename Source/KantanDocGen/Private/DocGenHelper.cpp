@@ -12,6 +12,7 @@
 #include "DoxygenParserHelpers.h"
 #include "KantanDocGenLog.h"
 #include "K2Node_Variable.h"
+#include "K2Node_CallFunction.h"
 
 void FDocGenHelper::TrimTarget(FString& Str)
 {
@@ -152,8 +153,19 @@ FString FDocGenHelper::GetNodeDescription(const UEdGraphNode* Node)
 {
 	FString NodeDesc = Node->GetTooltipText().ToString();
 	TrimTarget(NodeDesc);
-
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
 	const FString DefaultDescription = GetObjectRawDisplayName(Node);
+#else
+	FString DefaultDescription = GetDisplayName(Node->GetClass());
+
+	if (auto FuncNode = Cast<UK2Node_CallFunction>(Node))
+	{
+		if (UFunction* Func = FuncNode->GetTargetFunction())
+		{
+			DefaultDescription = GetDisplayName(Func);
+		}
+	}
+#endif
 	if (NodeDesc == DefaultDescription)
 		return FString();
 
@@ -201,8 +213,15 @@ FString FDocGenHelper::GetDescription(const UField* Field, bool bShortDescriptio
 			bShortDescription = true;
 	}
 
-	FString Description = Field->GetToolTipText(bShortDescription).ToString();
-	if (Description == GetObjectRawDisplayName(Field))
+	const FString Description = Field->GetToolTipText(bShortDescription).ToString();
+
+	#if UE_VERSION_OLDER_THAN(5, 8, 0)
+	const FString DefaultDescription = GetObjectRawDisplayName(Field);
+	#else
+	const FString DefaultDescription = GetDisplayName(Field);
+	#endif
+
+	if (Description == DefaultDescription)
 		return FString();
 
 	return Description;

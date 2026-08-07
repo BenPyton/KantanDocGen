@@ -293,6 +293,7 @@ bool FNodeDocsGenerator::UpdateClassDocWithNode(TSharedPtr<DocTreeNode> DocTree,
 	auto DocTreeNodesElement = FDocGenHelper::GetChildNode(DocTree, TEXT("nodes"), /*bCreate = */true);
 	auto DocTreeNode = DocTreeNodesElement->AppendChild("node");
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("id"), FDocGenHelper::GetDocId(Node));
+	DocTreeNode->AppendChildWithValueEscaped(TEXT("fulltitle"), FDocGenHelper::GetNodeFullTitle(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("shorttitle"), FDocGenHelper::GetNodeShortTitle(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("description"), FDocGenHelper::GetNodeDescription(Node));
 	DocTreeNode->AppendChildWithValueEscaped(TEXT("type"), FDocGenHelper::GetObjectNativeness(Node));
@@ -384,8 +385,7 @@ bool FNodeDocsGenerator::GenerateNodeDocTree(UK2Node* Node, FNodeProcessingState
 		}
 		else
 		{
-			UE_LOG(LogKantanDocGen, Warning, TEXT("[KantanDocGen] Failed to get target function for node %s "),
-				   *NodeFullTitle);
+			UE_LOG(LogKantanDocGen, Warning, TEXT("[KantanDocGen] Failed to get target function for node %s "), *NodeFullTitle);
 		}
 	}
 	else
